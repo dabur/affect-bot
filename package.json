@@ -1,0 +1,23 @@
+{
+  "name": "Affect",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dabur/affect-bot.git"
+  },
+  "author": "Nickolay Vasyukov",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dabur/affect-bot/issues"
+  },
+  "homepage": "https://github.com/dabur/affect-bot#readme",
+  "dependencies": {
+    "config": "1.28.1",
+    "google-auth-library": "0.12.0",
+    "googleapis": "23.0.0",
+    "node-telegram-bot-api": "0.30.0",
+    "q": "1.5.1"
+  }
+}
