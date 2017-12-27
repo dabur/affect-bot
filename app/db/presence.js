@@ -19,6 +19,7 @@ function init() {
                 console.warn(TAG + M_TAG, err);
             }
         }
+        d.resolve(true);
     }).catch(function (reason) {
         d.reject(reason);
     });

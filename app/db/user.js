@@ -52,6 +52,17 @@ function get(chatId) {
     return localDb[chatId];
 }
 
+function getAll() {
+    var arr = [];
+    for (var i in localDb) {
+        if (localDb.hasOwnProperty(i)) {
+            var user = localDb[i];
+            arr.push(user);
+        }
+    }
+    return arr;
+}
+
 function update() {
     var M_TAG = '.update';
     var d = Q.defer();
@@ -86,5 +97,6 @@ function update() {
 module.exports = {
     init: init,
     add: add,
-    get: get
+    get: get,
+    getAll: getAll
 };

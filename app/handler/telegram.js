@@ -8,13 +8,25 @@ var singleton = function singleton() {
         conn.onText(regex, cb);
     };
 
-    this.sendMessage = function (chatId, msg) {
-        conn.sendMessage(chatId, msg);
+    this.sendMessage = function (chatId, msg, options) {
+        return conn.sendMessage(chatId, msg, options)
     };
 
-    this.onMessage = function (cb) {
-        conn.on('message', cb);
+    this.onCallbackQuery = function (cb) {
+        return conn.on('callback_query', cb);
     };
+
+    this.answerCallbackQuery = function (callbackQueryId, option) {
+        return conn.answerCallbackQuery(callbackQueryId, option);
+    };
+
+    conn.on('polling_error', function (error) {
+        console.warn(error.code);
+    });
+
+    conn.on('webhook_error', function (error) {
+        console.warn(error.code);
+    });
 
     if (singleton.caller != singleton.getInstance) {
         console.error(TAG, 'This object cannot be instantiated');
