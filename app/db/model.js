@@ -8,11 +8,11 @@ var singleton = function singleton() {
     this.presence = presence;
     this.init = init;
 
-    function init() {
+    function init(hours) {
         return sheet.init().then(function () {
             return user.init();
         }).then(function () {
-            return presence.init();
+            return presence.init(hours);
         });
     }
 

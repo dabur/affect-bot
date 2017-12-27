@@ -3,8 +3,17 @@ var Q = require('q');
 var tel = require('./handler/telegram');
 var model = require('./db/model');
 var CRON_JOB_MESSAGE = true;
-var STARTLESSON_HOUR = [16, 10, 18, 19, 20];
-var SENT_LESSON_HOUR = {16: false, 10: false, 18: false, 19: false, 20: false};
+var admins = {
+    249023760: {
+        chatId: 249023760
+    }
+};
+var STARTLESSON_HOUR = [9, 10, 18, 19, 20];
+var SENT_LESSON_HOUR = {};
+for (var s = 0; s < STARTLESSON_HOUR.length; s++) {
+    SENT_LESSON_HOUR[STARTLESSON_HOUR[s]] = false;
+}
+var ADMIN_OPTIONS = '/next - next lessons subscribers\n\n' + '/status - all day subscribers\n\n';
 
 tel.onCallbackQuery(function (msg) {
     queryReaction(msg).then(function () {
@@ -24,6 +33,10 @@ tel.onText(/\/start/, function (msg) {
             languageCode: msg.from.language_code
         });
         var user = model.user.get(msg.from.id);
+        var adminOptions = '';
+        if (isAdmin(msg.from.id)) {
+            adminOptions = ADMIN_OPTIONS;
+        }
         tel.sendMessage(msg.from.id,
             (!user.firstName ? '' : 'Hi ' + user.firstName + '! ') +
             'Welcome Affect group!\n' +
@@ -33,18 +46,25 @@ tel.onText(/\/start/, function (msg) {
             '/help - all options\n\n' +
             '/website - our web site\n\n' +
             '/phone - our phone number\n\n' +
-            '/price - our prices\n\n' +
+            '/price - our prices\n\n' + adminOptions +
             '/today - today lessons\n\n' +
-            'type or press one of those options!');
+            'type or press one of those options!'
+        );
     }
 });
 
 tel.onText(/\/help/, function (msg) {
-    tel.sendMessage(msg.from.id, '/help - all options\n\n' +
+    var adminOptions = '';
+    if (isAdmin(msg.from.id)) {
+        adminOptions = ADMIN_OPTIONS;
+    }
+    tel.sendMessage(msg.from.id,
+        '/help - all options\n\n' +
         '/website - our web site\n\n' +
         '/phone - our phone number\n\n' +
-        '/price - our prices\n\n' +
-        '/today - today lessons\n\n');
+        '/price - our prices\n\n' + adminOptions +
+        '/today - today lessons\n\n'
+    );
 });
 
 tel.onText(/\/website/, function (msg) {
@@ -93,30 +113,61 @@ tel.onText(/\/today/, function (msg) {
     tel.sendMessage(msg.from.id, 'To subscribe the lesson, just press on hour!', options);
 });
 
-function queryReaction(msg) {
-    switch (msg.data) {
-        case 'ans::' + STARTLESSON_HOUR[0] + '::yes':
-            return tel.sendMessage(msg.from.id, 'Good choice!\nIf any changes please notify Dasha or press No button');
-        case 'ans::' + STARTLESSON_HOUR[0] + '::no':
-            return tel.sendMessage(msg.from.id, 'You will be missed :(');
-        case 'ans::' + STARTLESSON_HOUR[1] + '::yes':
-            return tel.sendMessage(msg.from.id, 'Good choice!\nIf any changes please notify Dasha or press No button');
-        case 'ans::' + STARTLESSON_HOUR[1] + '::no':
-            return tel.sendMessage(msg.from.id, 'You will be missed :(');
-        case 'ans::' + STARTLESSON_HOUR[2] + '::yes':
-            return tel.sendMessage(msg.from.id, 'Good choice!\nIf any changes please notify Dasha or press No button');
-        case 'ans::' + STARTLESSON_HOUR[2] + '::no':
-            return tel.sendMessage(msg.from.id, 'You will be missed :(');
-        case 'ans::' + STARTLESSON_HOUR[3] + '::yes':
-            return tel.sendMessage(msg.from.id, 'Good choice!\nIf any changes please notify Dasha or press No button');
-        case 'ans::' + STARTLESSON_HOUR[3] + '::no':
-            return tel.sendMessage(msg.from.id, 'You will be missed :(');
-        case 'ans::' + STARTLESSON_HOUR[4] + '::yes':
-            return tel.sendMessage(msg.from.id, 'Good choice!\nIf any changes please notify Dasha or press No button');
-        case 'ans::' + STARTLESSON_HOUR[4] + '::no':
-            return tel.sendMessage(msg.from.id, 'You will be missed :(');
+tel.onText(/\/next/, function (msg) {
+    if (isAdmin(msg.from.id)) {
+        var next = [];
+        var nowDate = new Date();
+        var nowHour = nowDate.getHours();
+        for (var i = 0; i < STARTLESSON_HOUR.length; i++) {
+            var h = STARTLESSON_HOUR[i];
+            if (nowHour <= h) {
+                next.push(h);
+            }
+        }
+        tel.sendMessage(msg.from.id, model.presence.getStatus(next));
     }
-    return rejectedPromise('unknown ans');
+});
+
+tel.onText(/\/status/, function (msg) {
+    if (isAdmin(msg.from.id)) {
+        tel.sendMessage(msg.from.id, model.presence.getStatus(STARTLESSON_HOUR));
+    }
+});
+
+function queryReaction(msg) {
+    if (!msg.data) {
+        return rejectedPromise('no data');
+    }
+    if (!msg.data.startsWith('ans::')) {
+        return rejectedPromise('unknown query prefix');
+    }
+    if (msg.data.endsWith('::yes')) {
+        var yesData = msg.data.split('::');
+        if (yesData.length != 3) {
+            return rejectedPromise('unknown query format');
+        }
+        var yesHour = yesData[1];
+        if (SENT_LESSON_HOUR[yesHour] == undefined) {
+            return rejectedPromise('unknown lesson hour');
+        }
+        return model.presence.add(msg.from.id, yesHour, STARTLESSON_HOUR).then(function () {
+            return tel.sendMessage(msg.from.id, 'Good choice!\nIf any changes please notify Dasha or press No button');
+        });
+    }
+    if (msg.data.endsWith('::no')) {
+        var noData = msg.data.split('::');
+        if (noData.length != 3) {
+            return rejectedPromise('unknown query format');
+        }
+        var noHour = noData[1];
+        if (!SENT_LESSON_HOUR[noHour]) {
+            return rejectedPromise('unknown lesson hour');
+        }
+        return model.presence.remove(msg.from.id, noHour, STARTLESSON_HOUR).then(function () {
+            return tel.sendMessage(msg.from.id, 'You will be missed :(');
+        });
+    }
+    return rejectedPromise('unknown query');
 }
 
 function rejectedPromise(reason) {
@@ -163,9 +214,13 @@ function sendHoueSubscriptionSurvey(hour) {
     }
 }
 
+function isAdmin(chatId) {
+    return !!admins[chatId];
+}
+
 function run() {
     var M_TAG = '.run';
-    model.init().then(function () {
+    model.init(STARTLESSON_HOUR).then(function () {
         setInterval(function () {
             if (CRON_JOB_MESSAGE) {
                 sendSubscriptionSurvey();
