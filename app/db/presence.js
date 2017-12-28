@@ -2,6 +2,7 @@ var TAG = 'db.presence';
 var Q = require('q');
 var moment = require('moment');
 var sheet = require('../handler/spreadsheet');
+var SPREADSHEET_ID = '1AkIWJNEmkUO8J90CJJys0iYKZr17JoknDI4GpJoVCdY';
 var localDb = {data: {}};
 var HOURS = [];
 
@@ -19,23 +20,6 @@ function init(hours) {
         localDb.data.hours[HOURS[HOURS.length - 1]] = 0;
     }
     d.resolve(true);
-    //init from spreadsheet offline state
-    // sheet.get({
-    //     spreadsheetId: '1AkIWJNEmkUO8J90CJJys0iYKZr17JoknDI4GpJoVCdY',
-    //     range: '20171226_18!A2:B',
-    // }).then(function (results) {
-    //     for (var i = 0; i < results.length; i++) {
-    //         try {
-    //             var result = results[i];
-    //             localDb.data[result[0]] = !!result[1];
-    //         } catch (err) {
-    //             console.warn(TAG + M_TAG, err);
-    //         }
-    //     }
-    //     d.resolve(true);
-    // }).catch(function (reason) {
-    //     d.reject(reason);
-    // });
     return d.promise;
 }
 

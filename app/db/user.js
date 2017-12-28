@@ -1,13 +1,14 @@
 var TAG = 'db.user';
 var Q = require('q');
 var sheet = require('../handler/spreadsheet');
+var SPREADSHEET_ID = '1vgQc_0JxixbBrLpd9BKau0RTFQ0OoNgOxxdCFwRQLr4';
 var localDb = {};
 
 function init() {
     var M_TAG = '.init';
     var d = Q.defer();
     sheet.get({
-        spreadsheetId: '1vgQc_0JxixbBrLpd9BKau0RTFQ0OoNgOxxdCFwRQLr4',
+        spreadsheetId: SPREADSHEET_ID,
         range: 'telegram_users!A2:E',
     }).then(function (results) {
         for (var i = 0; i < results.length; i++) {
@@ -81,7 +82,7 @@ function update() {
         }
     }
     sheet.update({
-        spreadsheetId: '1vgQc_0JxixbBrLpd9BKau0RTFQ0OoNgOxxdCFwRQLr4',
+        spreadsheetId: SPREADSHEET_ID,
         range: 'telegram_users!A2:E',
         valueInputOption: 'USER_ENTERED',
         resource: resource

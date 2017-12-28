@@ -4,28 +4,33 @@ var singleton = function singleton() {
     var TelegramBot = require('node-telegram-bot-api');
     var conn = new TelegramBot(config.telegram.token, {polling: true});
 
-    this.onText = function (regex, cb) {
+    this.onText = onText;
+    this.sendMessage = sendMessage;
+    this.onCallbackQuery = onCallbackQuery;
+    this.answerCallbackQuery = answerCallbackQuery;
+
+    function onText(regex, cb) {
         conn.onText(regex, cb);
-    };
+    }
 
-    this.sendMessage = function (chatId, msg, options) {
+    function sendMessage(chatId, msg, options) {
         return conn.sendMessage(chatId, msg, options)
-    };
+    }
 
-    this.onCallbackQuery = function (cb) {
+    function onCallbackQuery(cb) {
         return conn.on('callback_query', cb);
-    };
+    }
 
-    this.answerCallbackQuery = function (callbackQueryId, option) {
+    function answerCallbackQuery(callbackQueryId, option) {
         return conn.answerCallbackQuery(callbackQueryId, option);
-    };
+    }
 
     conn.on('polling_error', function (error) {
-        console.warn(error.code);
+        console.warn(TAG + ' on(polling_error)', error.code);
     });
 
     conn.on('webhook_error', function (error) {
-        console.warn(error.code);
+        console.warn(TAG + ' on(webhook_error)', error.code);
     });
 
     if (singleton.caller != singleton.getInstance) {

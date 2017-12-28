@@ -18,7 +18,11 @@ var singleton = function singleton() {
     var TOKEN_PATH = TOKEN_DIR + 'sheets.googleapis.com-nodejs-affect-bot.json';
     var auth;
 
-    this.init = function () {
+    this.init = init;
+    this.update = update;
+    this.get = get;
+
+    function init() {
         var d = Q.defer();
         // Load client secrets from a local file.
         fs.readFile(__dirname + '/../../.credentials/client_secret.json', function processClientSecrets(err, content) {
@@ -34,7 +38,7 @@ var singleton = function singleton() {
             }
         });
         return d.promise;
-    };
+    }
 
     /**
      * Create an OAuth2 client with the given credentials, and then execute the
@@ -110,7 +114,7 @@ var singleton = function singleton() {
         console.log('Token stored to ' + TOKEN_PATH);
     }
 
-    this.get = function (request) {
+    function get(request) {
         var d = Q.defer();
         var sheets = google.sheets('v4');
         request.auth = auth;
@@ -123,9 +127,9 @@ var singleton = function singleton() {
             }
         });
         return d.promise;
-    };
+    }
 
-    this.update = function (request) {
+    function update(request) {
         var d = Q.defer();
         var sheets = google.sheets('v4');
         request.auth = auth;
@@ -137,7 +141,7 @@ var singleton = function singleton() {
             }
         });
         return d.promise;
-    };
+    }
 
     if (singleton.caller != singleton.getInstance) {
         console.error(TAG, 'This object cannot be instantiated');

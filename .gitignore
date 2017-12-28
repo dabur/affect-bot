@@ -51,4 +51,4 @@ jspm_packages
 # IntelliJ IDE
 .idea
 .credentials/sheets.googleapis.com-nodejs-affect-bot.json
-
+temp.js
