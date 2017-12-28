@@ -8,7 +8,7 @@ var singleton = function singleton() {
     var googleAuth = require('google-auth-library');
 
     // If modifying these scopes, delete your previously saved credentials
-    // at ~/.credentials/sheets.googleapis.com-nodejs-quickstart.json
+    // at .credentials/sheets.googleapis.com-nodejs-affect-bot.json
     var SCOPES = [
         'https://www.googleapis.com/auth/drive',
         'https://www.googleapis.com/auth/drive.file',
