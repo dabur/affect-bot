@@ -141,24 +141,44 @@ function createToday() {
     return d.promise;
 }
 
-function getStatus() {
-    var ans = 'Hour - Subscribers:\n';
-    var hours = {};
-    for (var cI in localDb.data) {
-        if (localDb.data.hasOwnProperty(cI)) {
-            var hour = localDb.data[cI];
-            if (hours[hour] == undefined) {
-                hours[hour] = 0;
+function getStatus(chatId) {
+    var result = {msg: ''};
+    if (chatId) {
+        if (localDb.data.hasOwnProperty(chatId)) {
+            var sHour = localDb.data[chatId];
+            result.msg = 'You subscribed today lesson at ' + (sHour > 12 ? sHour % 12 + 'pm.' : sHour + 'am.');
+            result.options = {
+                reply_markup: JSON.stringify({
+                    inline_keyboard: [[
+                        {
+                            text: 'Unsubscribe',
+                            callback_data: 'ans::' + sHour + '::no'
+                        }
+                    ]]
+                })
+            };
+        } else {
+            result.msg = 'You did not subscribed today yet';
+        }
+    } else {
+        result.msg = 'Hour - Subscribers:\n';
+        var hours = {};
+        for (var cI in localDb.data) {
+            if (localDb.data.hasOwnProperty(cI)) {
+                var hour = localDb.data[cI];
+                if (hours[hour] == undefined) {
+                    hours[hour] = 0;
+                }
+                hours[hour]++;
             }
-            hours[hour]++;
+        }
+        for (var h in hours) {
+            if (hours.hasOwnProperty(h)) {
+                result.msg += ' ' + h + ':00 - ' + hours[h] + '\n'
+            }
         }
     }
-    for (var h in hours) {
-        if (hours.hasOwnProperty(h)) {
-            ans += ' ' + h + ':00 - ' + hours[h] + '\n'
-        }
-    }
-    return ans;
+    return result;
 }
 
 function getNext() {

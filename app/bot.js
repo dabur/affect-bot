@@ -11,10 +11,12 @@ var admins = {
 var ADMIN_OPTIONS = '/next - next lessons subscribers\n' + '/status - all day subscribers\n';
 
 tel.onCallbackQuery(function (msg) {
+    var M_TAG = '.onCallbackQuery';
     queryReaction(msg).then(function () {
         return tel.answerCallbackQuery(msg.id);
     }).catch(function (reason) {
-        console.error(TAG, reason);
+        console.error(TAG + M_TAG, reason);
+        tel.answerCallbackQuery(msg.id);
     });
 });
 
@@ -42,6 +44,7 @@ tel.onText(/\/start/, function (msg) {
             '/phone - our phone number\n' +
             '/price - our prices\n' + adminOptions +
             '/today - today lessons\n' +
+            '/sub - check today subscription\n' +
             'type or press one of those options!'
         );
     }
@@ -57,7 +60,8 @@ tel.onText(/\/help/, function (msg) {
         '/website - our web site\n' +
         '/phone - our phone number\n' +
         '/price - our prices\n' + adminOptions +
-        '/today - today lessons\n'
+        '/today - today lessons\n' +
+        '/sub - check today subscription\n'
     );
 });
 
@@ -96,7 +100,7 @@ tel.onText(/\/today/, function (msg) {
                     }
                     keyboard[keyboard.length - 1].push(
                         {
-                            text: hour + ':00',
+                            text: hour > 12 ? hour % 12 + 'pm.' : hour + 'am.',
                             callback_data: 'ans::' + hour + '::yes'
                         }
                     );
@@ -109,7 +113,7 @@ tel.onText(/\/today/, function (msg) {
             inline_keyboard: keyboard
         })
     };
-    tel.sendMessage(msg.from.id, 'To subscribe the lesson, just press on hour!', options);
+    tel.sendMessage(msg.from.id, 'To subscribe the lesson, just press on an hour!', options);
 });
 
 tel.onText(/\/next/, function (msg) {
@@ -120,8 +124,14 @@ tel.onText(/\/next/, function (msg) {
 
 tel.onText(/\/status/, function (msg) {
     if (isAdmin(msg.from.id)) {
-        tel.sendMessage(msg.from.id, model.presence.getStatus());
+        var result = model.presence.getStatus();
+        tel.sendMessage(msg.from.id, result.msg, result.options);
     }
+});
+
+tel.onText(/\/sub/, function (msg) {
+    var result = model.presence.getStatus(msg.from.id);
+    tel.sendMessage(msg.from.id, result.msg, result.options);
 });
 
 function queryReaction(msg) {
@@ -145,10 +155,20 @@ function queryReaction(msg) {
             yesHour = Number(yesHour);
         }
         if (!sch[nowDay][yesHour]) {
-            return rejectedPromise('no lesson on requested hour');
+            return tel.sendMessage(msg.from.id, 'No lesson today at ' + (yesHour > 12 ? yesHour % 12 + 'pm.' : yesHour + 'am.'));
         }
         return model.presence.add(msg.from.id, yesHour).then(function () {
-            return tel.sendMessage(msg.from.id, 'Good choice!\nIf any changes please notify Dasha or press No button');
+            var options = {
+                reply_markup: JSON.stringify({
+                    inline_keyboard: [[
+                        {
+                            text: 'Unsubscribe',
+                            callback_data: 'ans::' + yesHour + '::no'
+                        }
+                    ]]
+                })
+            };
+            return tel.sendMessage(msg.from.id, 'You subscribed on lesson at ' + (yesHour > 12 ? yesHour % 12 + 'pm.' : yesHour + 'am.') + '\nTo unsubscribe from any lesson press:', options);
         });
     }
     if (msg.data.endsWith('::no')) {
@@ -166,7 +186,7 @@ function queryReaction(msg) {
             return rejectedPromise('no lesson on requested hour');
         }
         return model.presence.remove(msg.from.id, noHour).then(function () {
-            return tel.sendMessage(msg.from.id, 'You will be missed :(');
+            return tel.sendMessage(msg.from.id, 'You unsubscribed from the lesson and will be missed.');
         });
     }
     return rejectedPromise('unknown query');
@@ -191,11 +211,11 @@ function sendSubscriptionSurvey() {
 function sendHoueSubscriptionSurvey(hour) {
     var keyboard = [[
         {
-            text: 'Yes :)',
+            text: 'Yes',
             callback_data: 'ans::' + hour + '::yes'
         },
         {
-            text: 'No :(',
+            text: 'No',
             callback_data: 'ans::' + hour + '::no'
         }
     ]];
@@ -208,7 +228,7 @@ function sendHoueSubscriptionSurvey(hour) {
     for (var i = 0; i < users.length; i++) {
         var user = users[i];
         if (!model.presence.isSubscribed(user.chatId)) {
-            tel.sendMessage(user.chatId, 'Are you coming today at ' + hour + ':00?', options);
+            tel.sendMessage(user.chatId, 'Want to subscribe lesson at ' + hour > 12 ? hour % 12 + 'pm.' : hour + 'am.?', options);
         }
     }
 }
@@ -226,7 +246,6 @@ function timer(iT) {
     roundDate.setMinutes(1, 0, 0);
     roundDate.setHours(roundDate.getHours() + 1);
     var surveyTime = roundDate - nowDate;
-    console.log('next survey in ' + parseInt((surveyTime) / 60000) + ' min.');
     iT = setTimeout(function () {
         if (CRON_JOB_MESSAGE) {
             sendSubscriptionSurvey();
