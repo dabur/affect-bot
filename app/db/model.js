@@ -3,16 +3,20 @@ var singleton = function singleton() {
     var sheet = require('../handler/spreadsheet');
     var user = require('./user');
     var presence = require('./presence');
+    var schedule = require('./schedule');
 
     this.user = user;
     this.presence = presence;
+    this.schedule = schedule;
     this.init = init;
 
-    function init(hours) {
+    function init() {
         return sheet.init().then(function () {
+            return schedule.init();
+        }).then(function () {
             return user.init();
         }).then(function () {
-            return presence.init(hours);
+            return presence.init();
         });
     }
 

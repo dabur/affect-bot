@@ -21,6 +21,9 @@ var singleton = function singleton() {
     this.init = init;
     this.update = update;
     this.get = get;
+    this.append = append;
+    this.create = create;
+    this.batchUpdate = batchUpdate;
 
     function init() {
         var d = Q.defer();
@@ -134,6 +137,48 @@ var singleton = function singleton() {
         var sheets = google.sheets('v4');
         request.auth = auth;
         sheets.spreadsheets.values.update(request, function (err, response) {
+            if (err) {
+                d.reject(err);
+            } else {
+                d.resolve(response);
+            }
+        });
+        return d.promise;
+    }
+
+    function create(request) {
+        var d = Q.defer();
+        var sheets = google.sheets('v4');
+        request.auth = auth;
+        sheets.spreadsheets.create(request, function (err, response) {
+            if (err) {
+                d.reject(err);
+            } else {
+                d.resolve(response);
+            }
+        });
+        return d.promise;
+    }
+
+    function append(request) {
+        var d = Q.defer();
+        var sheets = google.sheets('v4');
+        request.auth = auth;
+        sheets.spreadsheets.values.append(request, function (err, response) {
+            if (err) {
+                d.reject(err);
+            } else {
+                d.resolve(response);
+            }
+        });
+        return d.promise;
+    }
+
+    function batchUpdate(request) {
+        var d = Q.defer();
+        var sheets = google.sheets('v4');
+        request.auth = auth;
+        sheets.spreadsheets.batchUpdate(request, function (err, response) {
             if (err) {
                 d.reject(err);
             } else {

@@ -26,11 +26,11 @@ var singleton = function singleton() {
     }
 
     conn.on('polling_error', function (error) {
-        console.warn(TAG + ' on(polling_error)', error.code);
+        console.warn(TAG + ' on(polling_error)', error);
     });
 
     conn.on('webhook_error', function (error) {
-        console.warn(TAG + ' on(webhook_error)', error.code);
+        console.warn(TAG + ' on(webhook_error)', error);
     });
 
     if (singleton.caller != singleton.getInstance) {

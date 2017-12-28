@@ -8,11 +8,6 @@ var admins = {
         chatId: 249023760
     }
 };
-var START_LESSON_HOUR = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
-var SENT_LESSON_HOUR = {};
-for (var s = 0; s < START_LESSON_HOUR.length; s++) {
-    SENT_LESSON_HOUR[START_LESSON_HOUR[s]] = false;
-}
 var ADMIN_OPTIONS = '/next - next lessons subscribers\n' + '/status - all day subscribers\n';
 
 tel.onCallbackQuery(function (msg) {
@@ -89,19 +84,24 @@ tel.onText(/\/price/, function (msg) {
 tel.onText(/\/today/, function (msg) {
     var keyboard = [[]];
     var nowDate = new Date();
-    var nowHour = nowDate.getHours();
-    for (var i = 0; i < START_LESSON_HOUR.length; i++) {
-        var hour = START_LESSON_HOUR[i];
-        if (nowHour < hour) {
-            if (keyboard[keyboard.length - 1].length > 1) {
-                keyboard.push([]);
-            }
-            keyboard[keyboard.length - 1].push(
-                {
-                    text: hour + ':00',
-                    callback_data: 'ans::' + hour + '::yes'
+    var nowDay = nowDate.getDay();
+    var sch = model.schedule.getAll();
+    if (sch.hasOwnProperty(nowDay)) {
+        var nowHour = nowDate.getHours();
+        for (var hour in sch[nowDay]) {
+            if (sch[nowDay].hasOwnProperty(hour)) {
+                if (sch[nowDay][hour] && nowHour < hour) {
+                    if (keyboard[keyboard.length - 1].length > 1) {
+                        keyboard.push([]);
+                    }
+                    keyboard[keyboard.length - 1].push(
+                        {
+                            text: hour + ':00',
+                            callback_data: 'ans::' + hour + '::yes'
+                        }
+                    );
                 }
-            );
+            }
         }
     }
     var options = {
@@ -114,22 +114,13 @@ tel.onText(/\/today/, function (msg) {
 
 tel.onText(/\/next/, function (msg) {
     if (isAdmin(msg.from.id)) {
-        var next = [];
-        var nowDate = new Date();
-        var nowHour = nowDate.getHours();
-        for (var i = 0; i < START_LESSON_HOUR.length; i++) {
-            var h = START_LESSON_HOUR[i];
-            if (nowHour < h) {
-                next.push(h);
-            }
-        }
-        tel.sendMessage(msg.from.id, model.presence.getStatus(next));
+        tel.sendMessage(msg.from.id, model.presence.getNext());
     }
 });
 
 tel.onText(/\/status/, function (msg) {
     if (isAdmin(msg.from.id)) {
-        tel.sendMessage(msg.from.id, model.presence.getStatus(START_LESSON_HOUR));
+        tel.sendMessage(msg.from.id, model.presence.getStatus());
     }
 });
 
@@ -140,16 +131,23 @@ function queryReaction(msg) {
     if (!msg.data.startsWith('ans::')) {
         return rejectedPromise('unknown query prefix');
     }
+    var nowDay = new Date().getDay();
+    var sch = model.schedule.getAll();
     if (msg.data.endsWith('::yes')) {
         var yesData = msg.data.split('::');
         if (yesData.length != 3) {
             return rejectedPromise('unknown query format');
         }
         var yesHour = yesData[1];
-        if (SENT_LESSON_HOUR[yesHour] == undefined) {
-            return rejectedPromise('unknown lesson hour');
+        if (yesHour == "0") {
+            yesHour = 0;
+        } else {
+            yesHour = Number(yesHour);
         }
-        return model.presence.add(msg.from.id, yesHour, START_LESSON_HOUR).then(function () {
+        if (!sch[nowDay][yesHour]) {
+            return rejectedPromise('no lesson on requested hour');
+        }
+        return model.presence.add(msg.from.id, yesHour).then(function () {
             return tel.sendMessage(msg.from.id, 'Good choice!\nIf any changes please notify Dasha or press No button');
         });
     }
@@ -159,10 +157,15 @@ function queryReaction(msg) {
             return rejectedPromise('unknown query format');
         }
         var noHour = noData[1];
-        if (!SENT_LESSON_HOUR[noHour]) {
-            return rejectedPromise('unknown lesson hour');
+        if (noHour == "0") {
+            noHour = 0;
+        } else {
+            noHour = Number(noHour);
         }
-        return model.presence.remove(msg.from.id, noHour, START_LESSON_HOUR).then(function () {
+        if (!sch[nowDay][noHour]) {
+            return rejectedPromise('no lesson on requested hour');
+        }
+        return model.presence.remove(msg.from.id, noHour).then(function () {
             return tel.sendMessage(msg.from.id, 'You will be missed :(');
         });
     }
@@ -178,15 +181,10 @@ function rejectedPromise(reason) {
 function sendSubscriptionSurvey() {
     var nowDate = new Date();
     var nowHour = nowDate.getHours();
-    for (var i = 0; i < START_LESSON_HOUR.length; i++) {
-        var h = START_LESSON_HOUR[i];
-        if (!SENT_LESSON_HOUR[h] && nowHour == h - 1) {
-            sendHoueSubscriptionSurvey(h);
-            SENT_LESSON_HOUR[h] = true;
-        }
-        if (nowHour > h && SENT_LESSON_HOUR[h]) {
-            SENT_LESSON_HOUR[h] = false;
-        }
+    var nowDay = new Date().getDay();
+    var sch = model.schedule.getAll();
+    if (sch[nowDay][nowHour + 1]) {
+        sendHoueSubscriptionSurvey(nowHour + 1);
     }
 }
 
@@ -209,7 +207,9 @@ function sendHoueSubscriptionSurvey(hour) {
     var users = model.user.getAll();
     for (var i = 0; i < users.length; i++) {
         var user = users[i];
-        tel.sendMessage(user.chatId, 'Are you coming today at ' + hour + ':00?', options);
+        if (!model.presence.isSubscribed(user.chatId)) {
+            tel.sendMessage(user.chatId, 'Are you coming today at ' + hour + ':00?', options);
+        }
     }
 }
 
@@ -217,14 +217,28 @@ function isAdmin(chatId) {
     return !!admins[chatId];
 }
 
+function timer(iT) {
+    if (iT) {
+        clearTimeout(iT);
+    }
+    var nowDate = new Date();
+    var roundDate = new Date();
+    roundDate.setMinutes(1, 0, 0);
+    roundDate.setHours(roundDate.getHours() + 1);
+    var surveyTime = roundDate - nowDate;
+    console.log('next survey in ' + parseInt((surveyTime) / 60000) + ' min.');
+    iT = setTimeout(function () {
+        if (CRON_JOB_MESSAGE) {
+            sendSubscriptionSurvey();
+            timer(iT);
+        }
+    }, surveyTime);
+}
+
 function run() {
     var M_TAG = '.run';
-    model.init(START_LESSON_HOUR).then(function () {
-        setInterval(function () {
-            if (CRON_JOB_MESSAGE) {
-                sendSubscriptionSurvey();
-            }
-        }, 1000);
+    model.init().then(function () {
+        timer();
     }).catch(function (reason) {
         console.error(TAG + M_TAG, reason);
     });
