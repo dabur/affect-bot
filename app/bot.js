@@ -258,6 +258,7 @@ function run() {
     var M_TAG = '.run';
     console.info('NODE_ENV:', process.env.NODE_ENV, 'NTBA_FIX_319:', process.env.NTBA_FIX_319);
     model.init().then(function () {
+        console.info('Affect telegram bot started!');
         timer();
     }).catch(function (reason) {
         console.error(TAG + M_TAG, reason);
