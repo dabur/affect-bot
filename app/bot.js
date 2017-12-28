@@ -256,6 +256,7 @@ function timer(iT) {
 
 function run() {
     var M_TAG = '.run';
+    console.info('NODE_ENV:', process.env.NODE_ENV, 'NTBA_FIX_319:', process.env.NTBA_FIX_319);
     model.init().then(function () {
         timer();
     }).catch(function (reason) {
