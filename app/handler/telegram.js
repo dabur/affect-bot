@@ -4,6 +4,7 @@ var singleton = function singleton() {
     var TelegramBot = require('node-telegram-bot-api');
     var conn = new TelegramBot(config.telegram.token, {polling: true});
 
+    this.onMessage = onMessage;
     this.onText = onText;
     this.sendMessage = sendMessage;
     this.onCallbackQuery = onCallbackQuery;
@@ -15,6 +16,10 @@ var singleton = function singleton() {
 
     function sendMessage(chatId, msg, options) {
         return conn.sendMessage(chatId, msg, options)
+    }
+
+    function onMessage(cb) {
+        return conn.on('message', cb);
     }
 
     function onCallbackQuery(cb) {
