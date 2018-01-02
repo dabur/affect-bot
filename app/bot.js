@@ -4,8 +4,8 @@ var tel = require('./handler/telegram');
 var model = require('./db/model');
 var CRON_JOB_MESSAGE = true;
 var admins = {
-    249023760: {
-        chatId: 249023760
+    249023761: {
+        chatId: 249023761
     }
 };
 var MAIN_MENU = {
@@ -122,7 +122,7 @@ function queryMenuReaction(msg) {
                     inline_keyboard: keyboard
                 })
             };
-            return tel.sendMessage(msg.from.id, 'To subscribe the lesson, just press on an hour!', options);
+            return tel.sendMessage(msg.from.id, 'Press on lesson to subscribe!', options);
         }
     }
     return rejectedPromise('unknown menu query');
@@ -156,7 +156,7 @@ function queryAnsReaction(msg) {
                     ]]
                 })
             };
-            return tel.sendMessage(msg.from.id, 'You subscribed ' + sch[nowDay][yesHour] + '\nTo unsubscribe from any lesson press:', options);
+            return tel.sendMessage(msg.from.id, 'You subscribed to lesson:\n' + sch[nowDay][yesHour], options);
         });
     } else if (msg.data.endsWith('::no')) {
         var noData = msg.data.split('::');
@@ -173,7 +173,7 @@ function queryAnsReaction(msg) {
             return rejectedPromise('no lesson on requested hour');
         }
         return model.presence.remove(msg.from.id, noHour).then(function () {
-            return tel.sendMessage(msg.from.id, 'You unsubscribed from the lesson and will be missed.');
+            return tel.sendMessage(msg.from.id, 'You unsubscribed from lesson:\n' + sch[nowDay][noHour]);
         });
     }
     return rejectedPromise('unknown ans query');
@@ -215,7 +215,7 @@ function sendHoueSubscriptionSurvey(label, hour) {
     for (var i = 0; i < users.length; i++) {
         var user = users[i];
         if (!model.presence.isSubscribed(user.chatId)) {
-            tel.sendMessage(user.chatId, 'Want to subscribe ' + label, options);
+            tel.sendMessage(user.chatId, 'Want to subscribe:\n' + label, options);
         }
     }
 }
@@ -232,9 +232,9 @@ function timer(iT) {
     var roundDate = new Date();
     roundDate.setMinutes(1, 0, 0);
     roundDate.setHours(roundDate.getHours() + 1);
-    // var surveyTime = roundDate - nowDate;
+    var surveyTime = roundDate - nowDate;
     // debug
-    var surveyTime = 5000;
+    // var surveyTime = 5000;
     iT = setTimeout(function () {
         if (CRON_JOB_MESSAGE) {
             sendSubscriptionSurvey();
