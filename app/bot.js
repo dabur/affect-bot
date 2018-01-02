@@ -4,8 +4,8 @@ var tel = require('./handler/telegram');
 var model = require('./db/model');
 var CRON_JOB_MESSAGE = true;
 var admins = {
-    249023761: {
-        chatId: 249023761
+    249023760: {
+        chatId: 249023760
     }
 };
 var MAIN_MENU = {
