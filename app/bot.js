@@ -4,19 +4,19 @@ var tel = require('./handler/telegram');
 var model = require('./db/model');
 var CRON_JOB_MESSAGE = true;
 var admins = {
-    249023760: {
-        chatId: 249023760
+    505761652: {
+        chatId: 505761652
     }
 };
 var MAIN_MENU = {
     reply_markup: JSON.stringify({
         inline_keyboard: [[
             {
-                text: 'My Subscription',
+                text: 'השיעורים שאני רשום',
                 callback_data: 'menu::mysubscription'
             },
             {
-                text: 'Today Lessons',
+                text: 'השיעורים של היום',
                 callback_data: 'menu::todaylessons'
             }
         ]]
@@ -27,7 +27,7 @@ var ADMIN_MAIN_MENU = {
     reply_markup: JSON.stringify({
         inline_keyboard: [[
             {
-                text: 'Today Lessons',
+                text: 'השיעורים של היום',
                 callback_data: 'menu::todaylessons'
             }
         ]]
@@ -39,7 +39,12 @@ tel.onMessage(function (msg) {
         case '/start':
             return;
         default:
-            return tel.sendMessage(msg.from.id, "You can't chat here! There are your options", MAIN_MENU);
+            return tel.sendMessage(
+                msg.from.id,
+                'הקבוצה הינה אוטומטית שמטרתה היא הרשמה מסודר לשיעורים שלנו\n' +
+                'כדי להתכתב עם כל חברי Affect השתמשי בקבוצת ה-WhatsApp שלנו!',
+                MAIN_MENU
+            );
     }
 });
 
@@ -64,7 +69,7 @@ tel.onText(/\/start/, function (msg) {
         });
         var user = model.user.get(msg.from.id);
         var menu = isAdmin(msg.from.id) ? ADMIN_MAIN_MENU : MAIN_MENU;
-        tel.sendMessage(msg.from.id, 'Hi ' + user.firstName + '! Welcome Affect lessons subscription group!', menu);
+        tel.sendMessage(msg.from.id, 'היי ' + user.firstName + '!\n' + 'ברוכים הבאים לקבוצת רישום לשיעורים של Affect', menu);
     }
 });
 
@@ -87,33 +92,34 @@ function queryMenuReaction(msg) {
     if (yesData.length != 2) {
         return rejectedPromise('unknown query format');
     }
+    var nowDate = new Date();
+    var nowDay = nowDate.getDay();
+    var sch = model.schedule.getAll();
     if (msg.data.endsWith('::mysubscription')) {
-        var result = model.presence.getStatus(msg.from.id);
+        var result = model.presence.getStatus(msg.from.id, sch[nowDay]);
+        if (!result.options) {
+            result.options = isAdmin(msg.from.id) ? ADMIN_MAIN_MENU : MAIN_MENU;
+        }
         return tel.sendMessage(msg.from.id, result.msg, result.options);
     }
     if (msg.data.endsWith('::todaylessons')) {
         if (isAdmin(msg.from.id)) {
-            return tel.sendMessage(msg.from.id, model.presence.getNext());
+            return tel.sendMessage(msg.from.id, model.presence.getNext(sch[nowDay]));
         } else {
             var keyboard = [[]];
-            var nowDate = new Date();
-            var nowDay = nowDate.getDay();
-            var sch = model.schedule.getAll();
-            if (sch.hasOwnProperty(nowDay)) {
-                var nowHour = nowDate.getHours();
-                for (var hour in sch[nowDay]) {
-                    if (sch[nowDay].hasOwnProperty(hour)) {
-                        if (sch[nowDay][hour] && nowHour < hour) {
-                            if (keyboard[keyboard.length - 1].length > 0) {
-                                keyboard.push([]);
-                            }
-                            keyboard[keyboard.length - 1].push(
-                                {
-                                    text: sch[nowDay][hour],
-                                    callback_data: 'ans::' + hour + '::yes'
-                                }
-                            );
+            var nowHour = nowDate.getHours();
+            for (var hour in sch[nowDay]) {
+                if (sch[nowDay].hasOwnProperty(hour)) {
+                    if (sch[nowDay][hour] && nowHour < hour) {
+                        if (keyboard[keyboard.length - 1].length > 0) {
+                            keyboard.push([]);
                         }
+                        keyboard[keyboard.length - 1].push(
+                            {
+                                text: sch[nowDay][hour],
+                                callback_data: 'ans::' + hour + '::yes'
+                            }
+                        );
                     }
                 }
             }
@@ -122,7 +128,7 @@ function queryMenuReaction(msg) {
                     inline_keyboard: keyboard
                 })
             };
-            return tel.sendMessage(msg.from.id, 'Press on lesson to subscribe!', options);
+            return tel.sendMessage(msg.from.id, 'תלחצי על שיעור על מנת להירשם אליו', options);
         }
     }
     return rejectedPromise('unknown menu query');
@@ -143,20 +149,20 @@ function queryAnsReaction(msg) {
             yesHour = Number(yesHour);
         }
         if (!sch[nowDay][yesHour]) {
-            return tel.sendMessage(msg.from.id, 'No lesson today at ' + (yesHour > 12 ? yesHour % 12 + 'pm.' : yesHour + 'am.'));
+            return tel.sendMessage(msg.from.id, 'אין שיעורים היום בשעה מבוקשת');
         }
         return model.presence.add(msg.from.id, yesHour).then(function () {
             var options = {
                 reply_markup: JSON.stringify({
                     inline_keyboard: [[
                         {
-                            text: 'Unsubscribe',
+                            text: 'הסר',
                             callback_data: 'ans::' + yesHour + '::no'
                         }
                     ]]
                 })
             };
-            return tel.sendMessage(msg.from.id, 'You subscribed to lesson:\n' + sch[nowDay][yesHour], options);
+            return tel.sendMessage(msg.from.id, 'נרשמת ל-' + sch[nowDay][yesHour], options);
         });
     } else if (msg.data.endsWith('::no')) {
         var noData = msg.data.split('::');
@@ -170,10 +176,11 @@ function queryAnsReaction(msg) {
             noHour = Number(noHour);
         }
         if (!sch[nowDay][noHour]) {
-            return rejectedPromise('no lesson on requested hour');
+            return rejectedPromise('אין שיעורים היום בשעה מבוקשת');
         }
         return model.presence.remove(msg.from.id, noHour).then(function () {
-            return tel.sendMessage(msg.from.id, 'You unsubscribed from lesson:\n' + sch[nowDay][noHour]);
+            var menu = isAdmin(msg.from.id) ? ADMIN_MAIN_MENU : MAIN_MENU;
+            return tel.sendMessage(msg.from.id, 'הסרת רשום מ-' + sch[nowDay][noHour], menu);
         });
     }
     return rejectedPromise('unknown ans query');
@@ -198,12 +205,8 @@ function sendSubscriptionSurvey() {
 function sendHoueSubscriptionSurvey(label, hour) {
     var keyboard = [[
         {
-            text: 'Yes',
+            text: 'כן',
             callback_data: 'ans::' + hour + '::yes'
-        },
-        {
-            text: 'No',
-            callback_data: 'ans::' + hour + '::no'
         }
     ]];
     var options = {
@@ -214,8 +217,8 @@ function sendHoueSubscriptionSurvey(label, hour) {
     var users = model.user.getAll();
     for (var i = 0; i < users.length; i++) {
         var user = users[i];
-        if (!model.presence.isSubscribed(user.chatId)) {
-            tel.sendMessage(user.chatId, 'Want to subscribe:\n' + label, options);
+        if (!model.presence.isSubscribed(user.chatId) && !isAdmin(user.chatId)) {
+            tel.sendMessage(user.chatId, 'רוצה להירשם ל-' + label + ' ?', options);
         }
     }
 }

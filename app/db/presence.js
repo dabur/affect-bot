@@ -141,48 +141,29 @@ function createToday() {
     return d.promise;
 }
 
-function getStatus(chatId) {
+function getStatus(chatId, subToday) {
     var result = {msg: ''};
-    if (chatId) {
-        if (localDb.data.hasOwnProperty(chatId)) {
-            var sHour = localDb.data[chatId];
-            result.msg = 'You subscribed today lesson at ' + (sHour > 12 ? sHour % 12 + 'pm.' : sHour + 'am.');
-            result.options = {
-                reply_markup: JSON.stringify({
-                    inline_keyboard: [[
-                        {
-                            text: 'Unsubscribe',
-                            callback_data: 'ans::' + sHour + '::no'
-                        }
-                    ]]
-                })
-            };
-        } else {
-            result.msg = 'You did not subscribed today yet';
-        }
+    if (localDb.data.hasOwnProperty(chatId)) {
+        var sHour = localDb.data[chatId];
+        result.msg = 'הנך רשומה ל-' + subToday[sHour];
+        result.options = {
+            reply_markup: JSON.stringify({
+                inline_keyboard: [[
+                    {
+                        text: 'הסר',
+                        callback_data: 'ans::' + sHour + '::no'
+                    }
+                ]]
+            })
+        };
     } else {
-        result.msg = 'Hour - Subscribers:\n';
-        var hours = {};
-        for (var cI in localDb.data) {
-            if (localDb.data.hasOwnProperty(cI)) {
-                var hour = localDb.data[cI];
-                if (hours[hour] == undefined) {
-                    hours[hour] = 0;
-                }
-                hours[hour]++;
-            }
-        }
-        for (var h in hours) {
-            if (hours.hasOwnProperty(h)) {
-                result.msg += ' ' + h + ':00 - ' + hours[h] + '\n'
-            }
-        }
+        result.msg = 'עוד לא נרשמת היום';
     }
     return result;
 }
 
-function getNext() {
-    var ans = 'Hour - Subscribers:\n';
+function getNext(subToday) {
+    var ans = 'רשום לשעורים להמשך היום:\n';
     var hours = {};
     var nowDate = new Date();
     var nowHour = nowDate.getHours();
@@ -197,10 +178,16 @@ function getNext() {
             }
         }
     }
+    var lessons = '';
     for (var h in hours) {
         if (hours.hasOwnProperty(h)) {
-            ans += ' ' + h + ':00 - ' + hours[h] + '\n'
+            lessons += subToday[h] + ':' + hours[h] + '\n'
         }
+    }
+    if (lessons.length > 0) {
+        ans += lessons;
+    } else {
+        ans = 'אין עדיין רשומות להיום';
     }
     return ans;
 }
