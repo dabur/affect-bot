@@ -77,6 +77,9 @@ function updateToday() {
             resource.values.push(arr);
         }
     }
+    while (resource.values.length < 100) {
+        resource.values.push(["", ""]);
+    }
     sheet.update({
         spreadsheetId: SPREADSHEET_ID,
         range: localDb.yyyymmdd + '!A2:B',
