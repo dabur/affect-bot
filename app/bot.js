@@ -27,6 +27,10 @@ var ADMIN_MAIN_MENU = {
     reply_markup: JSON.stringify({
         inline_keyboard: [[
             {
+                text: 'רענון מערכת',
+                callback_data: 'menu::schedulereload'
+            },
+            {
                 text: 'השיעורים של היום',
                 callback_data: 'menu::todaylessons'
             }
@@ -123,12 +127,25 @@ function queryMenuReaction(msg) {
                     }
                 }
             }
-            var options = {
-                reply_markup: JSON.stringify({
-                    inline_keyboard: keyboard
-                })
-            };
-            return tel.sendMessage(msg.from.id, 'תלחצי על שיעור על מנת להירשם אליו', options);
+            var options;
+            var messsage = 'תלחצי על שיעור על מנת להירשם אליו';
+            if (keyboard.length == 1 && keyboard[0].length == 0) {
+                messsage = 'אין שיעורים להיום';
+            } else {
+                options = {
+                    reply_markup: JSON.stringify({
+                        inline_keyboard: keyboard
+                    })
+                };
+            }
+            return tel.sendMessage(msg.from.id, messsage, options);
+        }
+    }
+    if (msg.data.endsWith('::schedulereload')) {
+        if (isAdmin(msg.from.id)) {
+            return model.schedule.reload().then(function () {
+                return tel.sendMessage(msg.from.id, "מערכת נטענה בהצלחה!");
+            });
         }
     }
     return rejectedPromise('unknown menu query');

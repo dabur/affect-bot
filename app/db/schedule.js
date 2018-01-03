@@ -5,7 +5,33 @@ var SPREADSHEET_ID = '1vgQc_0JxixbBrLpd9BKau0RTFQ0OoNgOxxdCFwRQLr4';
 var localDb = {};
 
 function init() {
-    var M_TAG = '.init';
+    var d = Q.defer();
+    reload().then(function () {
+        timer();
+        d.resolve(true);
+    }).catch(function (reason) {
+        d.reject(reason);
+    });
+    return d.promise;
+}
+
+function timer(iT) {
+    if (iT) {
+        clearTimeout(iT);
+    }
+    var nowDate = new Date();
+    var roundDate = new Date();
+    roundDate.setHours(2, 0, 0, 0);
+    roundDate.setDate(roundDate.getDate() + 1);
+    var reloadTime = roundDate.getTime() - nowDate.getTime();
+    iT = setTimeout(function () {
+        reload();
+        timer(iT);
+    }, reloadTime);
+}
+
+function reload() {
+    var M_TAG = '.reload';
     var d = Q.defer();
     sheet.get({
         spreadsheetId: SPREADSHEET_ID,
@@ -56,5 +82,6 @@ function getAll() {
 
 module.exports = {
     init: init,
-    getAll: getAll
+    getAll: getAll,
+    reload: reload
 };
