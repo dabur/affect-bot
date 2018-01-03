@@ -12,7 +12,7 @@ var MAIN_MENU = {
     reply_markup: JSON.stringify({
         inline_keyboard: [[
             {
-                text: 'השיעורים שאני רשום',
+                text: 'השיעורים שאני רשומה',
                 callback_data: 'menu::mysubscription'
             },
             {
@@ -69,7 +69,7 @@ tel.onText(/\/start/, function (msg) {
         });
         var user = model.user.get(msg.from.id);
         var menu = isAdmin(msg.from.id) ? ADMIN_MAIN_MENU : MAIN_MENU;
-        tel.sendMessage(msg.from.id, 'היי ' + user.firstName + '!\n' + 'ברוכים הבאים לקבוצת רישום לשיעורים של Affect', menu);
+        tel.sendMessage(msg.from.id, 'היי ' + user.firstName + '!\n' + 'ברוכה הבאה לקבוצת רישום לשיעורים של Affect', menu);
     }
 });
 

@@ -145,7 +145,7 @@ function getStatus(chatId, subToday) {
     var result = {msg: ''};
     if (localDb.data.hasOwnProperty(chatId)) {
         var sHour = localDb.data[chatId];
-        result.msg = 'הנך רשומה ל-' + subToday[sHour];
+        result.msg = 'הינך רשומה ל-' + subToday[sHour];
         result.options = {
             reply_markup: JSON.stringify({
                 inline_keyboard: [[
@@ -163,7 +163,7 @@ function getStatus(chatId, subToday) {
 }
 
 function getNext(subToday) {
-    var ans = 'רשום לשעורים להמשך היום:\n';
+    var ans = 'רישום לשעורים להמשך היום:\n';
     var hours = {};
     var nowDate = new Date();
     var nowHour = nowDate.getHours();
