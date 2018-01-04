@@ -19,6 +19,7 @@ function init() {
             try {
                 var result = results[i];
                 localDb.data[result[0]] = result[1];
+                schedule.increaseCurrently(result[1]);
             } catch (err) {
                 console.warn(TAG + M_TAG, err);
             }
@@ -41,10 +42,9 @@ function refreshDay() {
         localDb.yyyymmdd = yyyymmdd;
         localDb.hours = {};
         localDb.data = {};
-        var nowDay = nowDate.getDay();
-        var sch = schedule.getAll();
-        for (var i = 0; i < sch[nowDay].length; i++) {
-            var hour = sch[nowDay][i];
+        var todayHours = schedule.getTodayHours();
+        for (var i = 0; i < todayHours.length; i++) {
+            var hour = todayHours[i];
             if (hour) {
                 localDb.hours[hour] = true;
             }
@@ -54,12 +54,20 @@ function refreshDay() {
 
 function add(chatId, hour) {
     refreshDay();
+    var nowDate = new Date();
+    if (localDb.data[chatId] && localDb.data[chatId] < nowDate.getHours()) {
+        return rejectedPromise(101);
+    }
     localDb.data[chatId] = hour;
     return updateToday();
 }
 
 function remove(chatId, hour) {
     refreshDay();
+    var nowDate = new Date();
+    if (localDb.data[chatId] && localDb.data[chatId] < nowDate.getHours()) {
+        return rejectedPromise(201);
+    }
     if (localDb.data[chatId] == hour) {
         delete localDb.data[chatId];
     }
@@ -144,11 +152,11 @@ function createToday() {
     return d.promise;
 }
 
-function getStatus(chatId, subToday) {
+function getStatus(chatId, todayHours) {
     var result = {msg: ''};
     if (localDb.data.hasOwnProperty(chatId)) {
         var sHour = localDb.data[chatId];
-        result.msg = 'הינך רשומה ל-' + subToday[sHour];
+        result.msg = 'הינך רשומה ל-' + todayHours[sHour].label;
         result.options = {
             reply_markup: JSON.stringify({
                 inline_keyboard: [[
@@ -165,8 +173,7 @@ function getStatus(chatId, subToday) {
     return result;
 }
 
-function getNext(subToday) {
-    var ans = 'רישום לשעורים להמשך היום:\n';
+function getNext(todayHours) {
     var hours = {};
     var nowDate = new Date();
     var nowHour = nowDate.getHours();
@@ -181,23 +188,56 @@ function getNext(subToday) {
             }
         }
     }
-    var lessons = '';
+    var options;
+    var inlineKeyboard = [];
     for (var h in hours) {
         if (hours.hasOwnProperty(h)) {
-            lessons += subToday[h] + ':' + hours[h] + '\n'
+            var btn = [
+                {
+                    text: todayHours[h].label + ' - ' + hours[h],
+                    callback_data: 'menu::' + h + '::hoursubscribers'
+                }
+            ];
+            inlineKeyboard.push(btn);
+
         }
     }
-    if (lessons.length > 0) {
-        ans += lessons;
-    } else {
-        ans = 'אין עדיין רשומות להיום';
+    var message = 'אין עדיין רשומות להיום';
+    if (inlineKeyboard.length > 0) {
+        message = 'רישום לשעורים להמשך היום:\n';
+        options = {
+            reply_markup: JSON.stringify({
+                inline_keyboard: inlineKeyboard
+            })
+        };
+    }
+    var ans = {message: message};
+    if (options) {
+        ans.options = options;
     }
     return ans;
 }
 
-
 function isSubscribed(chatId) {
     return localDb.data.hasOwnProperty(chatId);
+}
+
+function getHourSubscribers(hour) {
+    var chatIds = [];
+    for (var cI in localDb.data) {
+        if (localDb.data.hasOwnProperty(cI)) {
+            if (localDb.data[cI] == hour) {
+                chatIds.push(cI)
+            }
+        }
+    }
+    return chatIds;
+}
+
+function rejectedPromise(reason) {
+    var d = Q.defer();
+    d.reject(reason);
+    return d.promise;
 }
 
 module.exports = {
@@ -205,6 +245,7 @@ module.exports = {
     add: add,
     remove: remove,
     isSubscribed: isSubscribed,
+    getHourSubscribers: getHourSubscribers,
     getNext: getNext,
     getStatus: getStatus
 };

@@ -1,5 +1,8 @@
 {
   "telegram": {
     "token": "520798233:AAFOhd0Wh7DDaxWnP6R0bZwYzmNe9eIfU6Y"
-  }
+  },
+  "admins": [
+    505761652
+  ]
 }
