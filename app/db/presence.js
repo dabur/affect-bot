@@ -153,6 +153,7 @@ function createToday() {
 }
 
 function getStatus(chatId, todayHours) {
+    refreshDay();
     var result = {msg: ''};
     if (localDb.data.hasOwnProperty(chatId)) {
         var sHour = localDb.data[chatId];
@@ -174,6 +175,7 @@ function getStatus(chatId, todayHours) {
 }
 
 function getNext(todayHours) {
+    refreshDay();
     var hours = {};
     var nowDate = new Date();
     var nowHour = nowDate.getHours();
@@ -219,10 +221,12 @@ function getNext(todayHours) {
 }
 
 function isSubscribed(chatId) {
+    refreshDay();
     return localDb.data.hasOwnProperty(chatId);
 }
 
 function getHourSubscribers(hour) {
+    refreshDay();
     var chatIds = [];
     for (var cI in localDb.data) {
         if (localDb.data.hasOwnProperty(cI)) {
