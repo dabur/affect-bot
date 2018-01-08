@@ -207,11 +207,12 @@ function sendSubscriptionSurvey() {
     var nowHour = new Date().getHours();
     var todayHours = model.schedule.getTodayHours();
     if (todayHours[nowHour + 1] && todayHours[nowHour + 1].currently < todayHours[nowHour + 1].limit) {
-        sendHoueSubscriptionSurvey(todayHours[nowHour + 1].label, nowHour + 1);
+        var message = 'רוצה להירשם ל-' + todayHours[nowHour + 1].label + ' ?\n' + '(סה"כ: ' + todayHours[nowHour + 1].currently + '/' + todayHours[nowHour + 1].limit + ' רשומות)';
+        sendHoueSubscriptionSurvey(message, nowHour + 1);
     }
 }
 
-function sendHoueSubscriptionSurvey(label, hour) {
+function sendHoueSubscriptionSurvey(message, hour) {
     var keyboard = [[
         {
             text: 'כן',
@@ -227,7 +228,7 @@ function sendHoueSubscriptionSurvey(label, hour) {
     for (var i = 0; i < users.length; i++) {
         var user = users[i];
         if (!model.presence.isSubscribed(user.chatId) && !isAdmin(user.chatId)) {
-            tel.sendMessage(user.chatId, 'רוצה להירשם ל-' + label + ' ?', options);
+            tel.sendMessage(user.chatId, message, options);
         }
     }
 }
@@ -246,7 +247,7 @@ function timer(iT) {
     roundDate.setHours(roundDate.getHours() + 1);
     var surveyTime = roundDate.getTime() - nowDate.getTime();
     // debug
-    // var surveyTime = 5000;
+    var surveyTime = 5000;
     iT = setTimeout(function () {
         if (CRON_JOB_MESSAGE) {
             sendSubscriptionSurvey();
