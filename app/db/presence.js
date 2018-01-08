@@ -1,10 +1,10 @@
 var TAG = 'db.presence';
+var config = require('config');
 var Q = require('q');
 var moment = require('moment');
 var sheet = require('../handler/spreadsheet');
 var schedule = require('./schedule');
-
-var SPREADSHEET_ID = '1AkIWJNEmkUO8J90CJJys0iYKZr17JoknDI4GpJoVCdY';
+var SPREADSHEET_ID = config.spreadsheets.presence;
 var localDb = {};
 
 function init() {
@@ -55,8 +55,11 @@ function refreshDay() {
 function add(chatId, hour) {
     refreshDay();
     var nowDate = new Date();
-    if (localDb.data[chatId] && localDb.data[chatId] < nowDate.getHours()) {
+    if (localDb.data[chatId] && localDb.data[chatId] <= nowDate.getHours()) {
         return rejectedPromise(101);
+    }
+    if (hour <= nowDate.getHours()) {
+        return rejectedPromise(102);
     }
     localDb.data[chatId] = hour;
     return updateToday();
@@ -65,12 +68,13 @@ function add(chatId, hour) {
 function remove(chatId, hour) {
     refreshDay();
     var nowDate = new Date();
-    if (localDb.data[chatId] && localDb.data[chatId] < nowDate.getHours()) {
+    if (localDb.data[chatId] && localDb.data[chatId] <= nowDate.getHours()) {
         return rejectedPromise(201);
     }
-    if (localDb.data[chatId] == hour) {
-        delete localDb.data[chatId];
+    if (!localDb.data[chatId] || localDb.data[chatId] != hour) {
+        return rejectedPromise(202)
     }
+    delete localDb.data[chatId];
     return updateToday();
 }
 

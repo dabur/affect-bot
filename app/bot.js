@@ -162,6 +162,9 @@ function queryAnsReaction(msg) {
             if (reason == 101) {
                 return tel.sendMessage(msg.from.id, 'ההרשמה נכשלה מהסיבה שכבר היית רשומה היום');
             }
+            if (reason == 102) {
+                return tel.sendMessage(msg.from.id, 'ההרשמה נכשלה מהסיבה שאי אפשר להירשם לשעה שכבר עברה');
+            }
         });
     } else if (msg.data.endsWith('::no')) {
         var noData = msg.data.split('::');
@@ -184,6 +187,9 @@ function queryAnsReaction(msg) {
         }).catch(function (reason) {
             if (reason == 201) {
                 return tel.sendMessage(msg.from.id, 'הסרת רשום נכשל מהסיבה שאי אפשר להסיר רשום משעה שכבר עברה');
+            }
+            if (reason == 202) {
+                return tel.sendMessage(msg.from.id, 'הסרת רשום נכשל מהסיבה שלא היית רשומה היום');
             }
         });
     }

@@ -1,7 +1,8 @@
 var TAG = 'db.user';
+var config = require('config');
 var Q = require('q');
 var sheet = require('../handler/spreadsheet');
-var SPREADSHEET_ID = '1vgQc_0JxixbBrLpd9BKau0RTFQ0OoNgOxxdCFwRQLr4';
+var SPREADSHEET_ID = config.spreadsheets.main;
 var localDb = {};
 
 function init() {

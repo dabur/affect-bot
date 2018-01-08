@@ -1,6 +1,7 @@
 //spreadsheet
+var config = require('config');
 var sheet = require('./app/handler/spreadsheet');
-var SPREADSHEET_ID = '1AkIWJNEmkUO8J90CJJys0iYKZr17JoknDI4GpJoVCdY';//presence
+var SPREADSHEET_ID = config.spreadsheets.presence;//presence
 sheet.init().then(function () {
     console.log('spreadsheet init succeed');
     run();
