@@ -161,7 +161,8 @@ function getStatus(chatId, todayHours) {
     var result = {msg: ''};
     if (localDb.data.hasOwnProperty(chatId)) {
         var sHour = localDb.data[chatId];
-        result.msg = 'הינך רשומה ל-' + todayHours[sHour].label;
+        var statsLabel = 'סה"כ: ' + todayHours[sHour].currently + '/' + todayHours[sHour].limit + ' רשומות';
+        result.msg = 'הינך רשומה ל-' + todayHours[sHour].label + '\n' + statsLabel;
         result.options = {
             reply_markup: JSON.stringify({
                 inline_keyboard: [[

@@ -49,7 +49,6 @@ function queryReaction(msg) {
     } else {
         return rejectedPromise('unknown query prefix');
     }
-
 }
 
 function queryMenuReaction(msg) {
@@ -76,9 +75,10 @@ function queryMenuReaction(msg) {
                             if (keyboard[keyboard.length - 1].length > 0) {
                                 keyboard.push([]);
                             }
+                            var statsLabel = 'רשומות ' + todayHours[hour].currently + '/' + todayHours[hour].limit;
                             keyboard[keyboard.length - 1].push(
                                 {
-                                    text: todayHours[hour].label,
+                                    text: todayHours[hour].label + '\n' + statsLabel,
                                     callback_data: 'ans::' + hour + '::yes'
                                 }
                             );
@@ -157,7 +157,8 @@ function queryAnsReaction(msg) {
                 })
             };
             model.schedule.increaseCurrently(yesHour);
-            return tel.sendMessage(msg.from.id, 'נרשמת ל-' + todayHours[yesHour].label, options);
+            var statsLabel = 'סה"כ: ' + todayHours[yesHour].currently + '/' + todayHours[yesHour].limit + ' רשומות';
+            return tel.sendMessage(msg.from.id, 'נרשמת ל-' + todayHours[yesHour].label + '\n' + statsLabel, options);
         }).catch(function (reason) {
             if (reason == 101) {
                 return tel.sendMessage(msg.from.id, 'ההרשמה נכשלה מהסיבה שכבר היית רשומה היום');
