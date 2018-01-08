@@ -246,8 +246,9 @@ function timer(iT) {
     roundDate.setMinutes(1, 0, 0);
     roundDate.setHours(roundDate.getHours() + 1);
     var surveyTime = roundDate.getTime() - nowDate.getTime();
-    // debug
-    var surveyTime = 5000;
+    if (config.debug && config.debug.survey) {
+        surveyTime = 5000;
+    }
     iT = setTimeout(function () {
         if (CRON_JOB_MESSAGE) {
             sendSubscriptionSurvey();
