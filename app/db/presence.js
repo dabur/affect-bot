@@ -55,10 +55,10 @@ function refreshDay() {
 function add(chatId, hour) {
     refreshDay();
     var nowDate = new Date();
-    if (localDb.data[chatId] && localDb.data[chatId] <= nowDate.getHours()) {
+    if (localDb.data[chatId] && localDb.data[chatId] < nowDate.getHours()) {
         return rejectedPromise(101);
     }
-    if (hour <= nowDate.getHours()) {
+    if (hour < nowDate.getHours()) {
         return rejectedPromise(102);
     }
     localDb.data[chatId] = hour;
@@ -68,7 +68,7 @@ function add(chatId, hour) {
 function remove(chatId, hour) {
     refreshDay();
     var nowDate = new Date();
-    if (localDb.data[chatId] && localDb.data[chatId] <= nowDate.getHours()) {
+    if (localDb.data[chatId] && localDb.data[chatId] < nowDate.getHours()) {
         return rejectedPromise(201);
     }
     if (!localDb.data[chatId] || localDb.data[chatId] != hour) {

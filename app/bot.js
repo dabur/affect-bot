@@ -71,7 +71,7 @@ function queryMenuReaction(msg) {
                 var nowHour = new Date().getHours();
                 for (var hour in todayHours) {
                     if (todayHours.hasOwnProperty(hour)) {
-                        if (todayHours[hour] && nowHour < hour) {
+                        if (todayHours[hour] && nowHour <= hour) {
                             if (keyboard[keyboard.length - 1].length > 0) {
                                 keyboard.push([]);
                             }
