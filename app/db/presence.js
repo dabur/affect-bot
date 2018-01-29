@@ -78,7 +78,7 @@ function remove(chatId, hour) {
     return updateToday();
 }
 
-function updateToday() {
+function updateToday(previousHour) {
     var M_TAG = '.updateToday';
     var d = Q.defer();
     var resource = {values: []};
@@ -187,7 +187,7 @@ function getNext(todayHours) {
     for (var cI in localDb.data) {
         if (localDb.data.hasOwnProperty(cI)) {
             var hour = localDb.data[cI];
-            if (nowHour < hour) {
+            if (nowHour <= hour) {
                 if (hours[hour] == undefined) {
                     hours[hour] = 0;
                 }
@@ -249,6 +249,10 @@ function rejectedPromise(reason) {
     return d.promise;
 }
 
+function getPreviousHour(chatId) {
+    return localDb.data[chatId];
+}
+
 module.exports = {
     init: init,
     add: add,
@@ -256,5 +260,6 @@ module.exports = {
     isSubscribed: isSubscribed,
     getHourSubscribers: getHourSubscribers,
     getNext: getNext,
-    getStatus: getStatus
+    getStatus: getStatus,
+    getPreviousHour: getPreviousHour
 };
