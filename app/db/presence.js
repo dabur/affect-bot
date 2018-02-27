@@ -5,29 +5,67 @@ var moment = require('moment');
 var sheet = require('../handler/spreadsheet');
 var schedule = require('./schedule');
 var SPREADSHEET_ID = config.spreadsheets.presence;
-var localDb = {};
+var nextDay = {subscribers: {}, lessons: {}};
+var today = {subscribers: {}, lessons: {}};
 
-function init() {
-    var M_TAG = '.init';
+function reload(users, lessons) {
+    return reloadToday(users, lessons).then(function () {
+        return reloadNextDay(users, lessons);
+    });
+}
+
+function reloadToday(users, lessons) {
     var d = Q.defer();
-    refreshDay();
-    sheet.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: localDb.yyyymmdd + '!A2:B',
-    }).then(function (results) {
-        for (var i = 0; results && i < results.length; i++) {
-            try {
-                var result = results[i];
-                localDb.data[result[0]] = result[1];
-                schedule.increaseCurrently(result[1]);
-            } catch (err) {
-                console.warn(TAG + M_TAG, err);
-            }
-        }
+    var date = new Date();
+    reloadFromSheet(moment(date).format("YYYYMMDD").toString(), users, lessons).then(function (result) {
+        today = result;
         d.resolve(true);
     }).catch(function (reason) {
+        d.reject(reason);
+    });
+    return d.promise;
+}
+
+function reloadNextDay(users, lessons) {
+    var d = Q.defer();
+    var date = new Date();
+    date.setDate(date.getDate() + 1);
+    reloadFromSheet(moment(date).format("YYYYMMDD").toString(), users, lessons).then(function (result) {
+        nextDay = result;
+        d.resolve(true);
+    }).catch(function (reason) {
+        d.reject(reason);
+    });
+    return d.promise;
+}
+
+function reloadFromSheet(label, users, lessons) {
+    var d = Q.defer();
+    var ans = {label: label, subscribers: {}, lessons: {}};
+    sheet.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: label + '!A2:B',
+    }).then(function (results) {
+        for (var i = 0; results && i < results.length; i++) {
+            var result = results[i];
+            var lesson = lessons[result[0]];
+            var user = users.get(result[1]);
+            if (!ans.lessons[lesson.id]) {
+                ans.lessons[lesson.id] = {
+                    count: 0,
+                    users: {}
+                };
+            }
+            if (!ans.lessons[lesson.id].users[user.chatId]) {
+                ans.lessons[lesson.id].users[user.chatId] = user;
+                ans.lessons[lesson.id].count++;
+            }
+            ans.subscribers[user.chatId] = lesson;
+        }
+        d.resolve(ans);
+    }).catch(function (reason) {
         if (reason.code && reason.code == 400) {
-            d.resolve(true);
+            d.resolve(ans);
         } else {
             d.reject(reason);
         }
@@ -35,58 +73,27 @@ function init() {
     return d.promise;
 }
 
-function refreshDay() {
-    var nowDate = new Date();
-    var yyyymmdd = moment(nowDate).format("YYYYMMDD").toString();
-    if (localDb.yyyymmdd != yyyymmdd) {
-        localDb.yyyymmdd = yyyymmdd;
-        localDb.hours = {};
-        localDb.data = {};
-        var todayHours = schedule.getTodayHours();
-        for (var i = 0; i < todayHours.length; i++) {
-            var hour = todayHours[i];
-            if (hour) {
-                localDb.hours[hour] = true;
-            }
-        }
-    }
+function updateToday() {
+    return updateSheet(today);
 }
 
-function add(chatId, hour) {
-    refreshDay();
-    var nowDate = new Date();
-    if (localDb.data[chatId] && localDb.data[chatId] < nowDate.getHours()) {
-        return rejectedPromise(101);
-    }
-    if (hour < nowDate.getHours()) {
-        return rejectedPromise(102);
-    }
-    localDb.data[chatId] = hour;
-    return updateToday();
+function updateNextDay() {
+    return updateSheet(nextDay);
 }
 
-function remove(chatId, hour) {
-    refreshDay();
-    var nowDate = new Date();
-    if (localDb.data[chatId] && localDb.data[chatId] < nowDate.getHours()) {
-        return rejectedPromise(201);
-    }
-    if (!localDb.data[chatId] || localDb.data[chatId] != hour) {
-        return rejectedPromise(202)
-    }
-    delete localDb.data[chatId];
-    return updateToday();
-}
-
-function updateToday(previousHour) {
-    var M_TAG = '.updateToday';
+function updateSheet(data) {
+    var M_TAG = '.updateSheet';
     var d = Q.defer();
     var resource = {values: []};
-    for (var i in localDb.data) {
-        if (localDb.data.hasOwnProperty(i)) {
-            var hour = localDb.data[i];
-            var arr = [i, hour];
-            resource.values.push(arr);
+    for (var lessonId in data.lessons) {
+        if (data.lessons.hasOwnProperty(lessonId)) {
+            var lesson = data.lessons[lessonId];
+            for (var chattId in lesson.users) {
+                if (lesson.users.hasOwnProperty(chattId)) {
+                    var arr = [lessonId, chattId];
+                    resource.values.push(arr);
+                }
+            }
         }
     }
     while (resource.values.length < 100) {
@@ -94,22 +101,22 @@ function updateToday(previousHour) {
     }
     sheet.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: localDb.yyyymmdd + '!A2:B',
+        range: data.label + '!A2:B',
         valueInputOption: 'USER_ENTERED',
         resource: resource
-    }).then(function (result) {
-        d.resolve(result);
+    }).then(function () {
+        d.resolve(true);
     }).catch(function (reason) {
         if (reason.code && reason.code == 400) {
-            createToday().then(function () {
+            createSheet(data.label).then(function () {
                 return sheet.update({
                     spreadsheetId: SPREADSHEET_ID,
-                    range: localDb.yyyymmdd + '!A2:B',
+                    range: data.label + '!A2:B',
                     valueInputOption: 'USER_ENTERED',
                     resource: resource
                 });
-            }).then(function (result) {
-                d.resolve(result);
+            }).then(function () {
+                d.resolve(true);
             }).catch(function (reason) {
                 console.error(TAG + M_TAG, reason);
                 d.reject(reason);
@@ -122,17 +129,17 @@ function updateToday(previousHour) {
     return d.promise;
 }
 
-function createToday() {
+function createSheet(label) {
     var d = Q.defer();
     var resource = {};
     resource.requests = [
         {
             addSheet: {
                 properties: {
-                    title: localDb.yyyymmdd,
+                    title: label,
                     gridProperties: {
                         rowCount: 100,
-                        columnCount: 10
+                        columnCount: 2
                     }
                 }
             }
@@ -144,9 +151,9 @@ function createToday() {
     }).then(function () {
         return sheet.update({
             spreadsheetId: SPREADSHEET_ID,
-            range: localDb.yyyymmdd + '!A1:B1',
+            range: label + '!A1:B1',
             valueInputOption: 'USER_ENTERED',
-            resource: {values: [['chatId', 'hour']]}
+            resource: {values: [['lessonId', 'chatId']]}
         });
     }).then(function () {
         d.resolve(true);
@@ -156,110 +163,128 @@ function createToday() {
     return d.promise;
 }
 
-function getStatus(chatId, todayHours) {
-    refreshDay();
-    var result = {msg: ''};
-    if (localDb.data.hasOwnProperty(chatId)) {
-        var sHour = localDb.data[chatId];
-        var statsLabel = 'סה"כ: ' + todayHours[sHour].currently + '/' + todayHours[sHour].limit + ' רשומות';
-        result.msg = 'הינך רשומה ל-' + todayHours[sHour].label + '\n' + statsLabel;
-        result.options = {
-            reply_markup: JSON.stringify({
-                inline_keyboard: [[
-                    {
-                        text: 'הסר',
-                        callback_data: 'ans::' + sHour + '::no'
-                    }
-                ]]
-            })
-        };
-    } else {
-        result.msg = 'עוד לא נרשמת היום';
-    }
-    return result;
+function getSubscribedUserForToday(user) {
+    return getSubscribedUser(user, today.subscribers);
 }
 
-function getNext(todayHours) {
-    refreshDay();
-    var hours = {};
-    var nowDate = new Date();
-    var nowHour = nowDate.getHours();
-    for (var cI in localDb.data) {
-        if (localDb.data.hasOwnProperty(cI)) {
-            var hour = localDb.data[cI];
-            if (nowHour <= hour) {
-                if (hours[hour] == undefined) {
-                    hours[hour] = 0;
-                }
-                hours[hour]++;
-            }
-        }
-    }
-    var options;
-    var inlineKeyboard = [];
-    for (var h in hours) {
-        if (hours.hasOwnProperty(h)) {
-            var btn = [
-                {
-                    text: todayHours[h].label + ' - ' + hours[h],
-                    callback_data: 'menu::' + h + '::hoursubscribers'
-                }
-            ];
-            inlineKeyboard.push(btn);
+function unsubscribeUserForToday(user, lesson) {
+    return unsubscribeUser(user, lesson, today.lessons, today.subscribers).then(function () {
+        return updateToday();
+    });
+}
 
+function subscribeUserForToday(user, lesson) {
+    return subscribeUser(user, lesson, today.lessons, today.subscribers).then(function () {
+        return updateToday();
+    });
+}
+
+function getSubscribedUserForNextDay(user) {
+    return getSubscribedUser(user, nextDay.subscribers);
+}
+
+function unsubscribeUserForNextDay(user, lesson) {
+    return unsubscribeUser(user, lesson, nextDay.lessons, nextDay.subscribers).then(function () {
+        return updateNextDay();
+    });
+}
+
+function subscribeUserForNextDay(user, lesson) {
+    return subscribeUser(user, lesson, nextDay.lessons, nextDay.subscribers).then(function () {
+        return updateNextDay();
+    });
+}
+
+function getSubscribedUser(user, subscribers) {
+    return subscribers[user.chatId];
+}
+
+function unsubscribeUser(user, lesson, lessons, subscribers) {
+    var d = Q.defer();
+    if (!lessons[lesson.id]) {
+        d.resolve(false);
+    } else {
+        if (lessons[lesson.id].users[user.chatId]) {
+            delete lessons[lesson.id].users[user.chatId];
+            lessons[lesson.id].count--;
         }
+        if (subscribers[user.chatId]) {
+            delete subscribers[user.chatId];
+        }
+        d.resolve(true);
     }
-    var message = 'אין עדיין רשומות להיום';
-    if (inlineKeyboard.length > 0) {
-        message = 'רישום לשעורים להמשך היום:\n';
-        options = {
-            reply_markup: JSON.stringify({
-                inline_keyboard: inlineKeyboard
-            })
+    return d.promise;
+}
+
+function subscribeUser(user, lesson, lessons, subscribers) {
+    var d = Q.defer();
+    if (!lessons[lesson.id]) {
+        lessons[lesson.id] = {
+            count: 0,
+            users: {}
         };
     }
-    var ans = {message: message};
-    if (options) {
-        ans.options = options;
+    if (!lessons[lesson.id].users[user.chatId]) {
+        lessons[lesson.id].users[user.chatId] = user;
+        lessons[lesson.id].count++;
+    }
+    subscribers[user.chatId] = lesson;
+    d.resolve(true);
+    return d.promise;
+}
+
+function getSubscribeLessonsForToday() {
+    return getSubscribeLessons(today.lessons);
+}
+
+function getSubscribeLessonsForNextDay() {
+    return getSubscribeLessons(nextDay.lessons);
+}
+
+function getSubscribeLessons(lessons) {
+    var ans = [];
+    for (var i in lessons) {
+        if (lessons.hasOwnProperty(i)) {
+            var lesson = lessons[i];
+            if (lesson.count > 0) {
+                ans.push({
+                    id: i,
+                    count: lesson.count
+                });
+            }
+        }
     }
     return ans;
 }
 
-function isSubscribed(chatId) {
-    refreshDay();
-    return localDb.data.hasOwnProperty(chatId);
+function getSubscribersForToday(lesson) {
+    return getSubscribers(lesson, today.lessons);
 }
 
-function getHourSubscribers(hour) {
-    refreshDay();
-    var chatIds = [];
-    for (var cI in localDb.data) {
-        if (localDb.data.hasOwnProperty(cI)) {
-            if (localDb.data[cI] == hour) {
-                chatIds.push(cI)
-            }
-        }
-    }
-    return chatIds;
+function getSubscribersForNextDay(lesson) {
+    return getSubscribers(lesson, nextDay.lessons);
 }
 
-function rejectedPromise(reason) {
+function getSubscribers(lesson, lessons) {
     var d = Q.defer();
-    d.reject(reason);
+    if (lessons[lesson.id] && lessons[lesson.id].count > 0) {
+        d.resolve(lessons[lesson.id].users);
+    } else {
+        d.reject('no subscribers found');
+    }
     return d.promise;
 }
 
-function getPreviousHour(chatId) {
-    return localDb.data[chatId];
-}
-
 module.exports = {
-    init: init,
-    add: add,
-    remove: remove,
-    isSubscribed: isSubscribed,
-    getHourSubscribers: getHourSubscribers,
-    getNext: getNext,
-    getStatus: getStatus,
-    getPreviousHour: getPreviousHour
+    reload: reload,
+    getSubscribedUserForToday: getSubscribedUserForToday,
+    subscribeUserForToday: subscribeUserForToday,
+    unsubscribeUserForToday: unsubscribeUserForToday,
+    getSubscribeLessonsForToday: getSubscribeLessonsForToday,
+    getSubscribersForToday: getSubscribersForToday,
+    getSubscribedUserForNextDay: getSubscribedUserForNextDay,
+    subscribeUserForNextDay: subscribeUserForNextDay,
+    unsubscribeUserForNextDay: unsubscribeUserForNextDay,
+    getSubscribeLessonsForNextDay: getSubscribeLessonsForNextDay,
+    getSubscribersForNextDay: getSubscribersForNextDay
 };

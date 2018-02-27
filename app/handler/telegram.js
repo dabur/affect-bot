@@ -7,8 +7,6 @@ var singleton = function singleton() {
     this.onMessage = onMessage;
     this.onText = onText;
     this.sendMessage = sendMessage;
-    this.onCallbackQuery = onCallbackQuery;
-    this.answerCallbackQuery = answerCallbackQuery;
 
     function onText(regex, cb) {
         conn.onText(regex, cb);
@@ -20,14 +18,6 @@ var singleton = function singleton() {
 
     function onMessage(cb) {
         return conn.on('message', cb);
-    }
-
-    function onCallbackQuery(cb) {
-        return conn.on('callback_query', cb);
-    }
-
-    function answerCallbackQuery(callbackQueryId, option) {
-        return conn.answerCallbackQuery(callbackQueryId, option);
     }
 
     conn.on('polling_error', function (error) {

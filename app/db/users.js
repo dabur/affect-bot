@@ -3,27 +3,26 @@ var config = require('config');
 var Q = require('q');
 var sheet = require('../handler/spreadsheet');
 var SPREADSHEET_ID = config.spreadsheets.main;
-var localDb = {};
+var users = {};
 
 function init() {
     var M_TAG = '.init';
     var d = Q.defer();
     sheet.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: 'telegram_users!A2:E',
+        range: 'telegram_users!A2:D',
     }).then(function (results) {
         for (var i = 0; i < results.length; i++) {
             try {
                 var result = results[i];
                 var user = {
                     chatId: result[0],
-                    username: result[1],
-                    firstName: result[2],
-                    lastName: result[3],
-                    languageCode: result[4]
+                    firstName: result[1],
+                    lastName: result[2],
+                    languageCode: result[3]
                 };
                 if (user.chatId) {
-                    localDb[user.chatId] = user;
+                    users[user.chatId] = user;
                 }
             } catch (err) {
                 console.warn(TAG + M_TAG, err);
@@ -40,10 +39,10 @@ function add(user) {
     var M_TAG = '.update';
     var d = Q.defer();
     if (!user.chatId) {
-        console.error(TAG + M_TAG, 'no chatId');
+        console.error(TAG + M_TAG, 'no chatId user:', user);
         d.reject('no chatId');
     } else {
-        localDb[user.chatId] = user;
+        users[user.chatId] = user;
         update();
         d.resolve(true);
     }
@@ -51,14 +50,14 @@ function add(user) {
 }
 
 function get(chatId) {
-    return localDb[chatId];
+    return users[chatId];
 }
 
 function getAll() {
     var arr = [];
-    for (var i in localDb) {
-        if (localDb.hasOwnProperty(i)) {
-            var user = localDb[i];
+    for (var i in users) {
+        if (users.hasOwnProperty(i)) {
+            var user = users[i];
             arr.push(user);
         }
     }
@@ -69,12 +68,11 @@ function update() {
     var M_TAG = '.update';
     var d = Q.defer();
     var resource = {values: []};
-    for (var i in localDb) {
-        if (localDb.hasOwnProperty(i)) {
-            var row = localDb[i];
+    for (var i in users) {
+        if (users.hasOwnProperty(i)) {
+            var row = users[i];
             var arr = [
                 row.chatId,
-                row.username,
                 row.firstName,
                 row.lastName,
                 row.languageCode
@@ -84,7 +82,7 @@ function update() {
     }
     sheet.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: 'telegram_users!A2:E',
+        range: 'telegram_users!A2:D',
         valueInputOption: 'USER_ENTERED',
         resource: resource
     }).then(function (result) {
