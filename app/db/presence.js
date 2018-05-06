@@ -7,6 +7,7 @@ var schedule = require('./schedule');
 var SPREADSHEET_ID = config.spreadsheets.presence;
 var nextDay = {subscribers: {}, lessons: {}};
 var today = {subscribers: {}, lessons: {}};
+var OVER_CAPACITY_STR = "ההרשמה נכשלה: השיעור המלא";
 
 function reload(users, lessons) {
     return reloadToday(users, lessons).then(function () {
@@ -224,12 +225,18 @@ function subscribeUser(user, lesson, lessons, subscribers) {
             users: {}
         };
     }
-    if (!lessons[lesson.id].users[user.chatId]) {
-        lessons[lesson.id].users[user.chatId] = user;
-        lessons[lesson.id].count++;
+    if (lessons[lesson.id].count < lesson.capacity) {
+        if (!lessons[lesson.id].users[user.chatId]) {
+            lessons[lesson.id].users[user.chatId] = user;
+            lessons[lesson.id].count++;
+        }
+        subscribers[user.chatId] = lesson;
+        d.resolve(true);
+    } else {
+        d.reject({
+            text: OVER_CAPACITY_STR
+        });
     }
-    subscribers[user.chatId] = lesson;
-    d.resolve(true);
     return d.promise;
 }
 

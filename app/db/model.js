@@ -13,7 +13,7 @@ var singleton = function singleton() {
     this.reload = reload;
     this.addUser = addUser;
     this.getUser = getUser;
-    this.getAllUsers = getAllUsers
+    this.getAllUsers = getAllUsers;
     this.getTodayClosestLessons = getTodayClosestLessons;
     this.subscribeUserForToday = subscribeUserForToday;
     this.unsubscribeUserFromToday = unsubscribeUserFromToday;
@@ -75,7 +75,20 @@ var singleton = function singleton() {
                                         d.resolve('ההרשמה עברה בהצלחה!');
                                     }).catch(function (err) {
                                         console.error(TAG + M_TAG, err);
-                                        d.reject({text: 'בעיית רישום'});
+                                        presence.subscribeUserForToday(user, subscribedLesson).then(function () {
+                                            if (err && err.text) {
+                                                d.reject({text: err.text});
+                                            } else {
+                                                d.reject({text: 'בעיית רישום'});
+                                            }
+                                        }).catch(function (reason) {
+                                            console.error(TAG + M_TAG, 'reason:', reason);
+                                            if (err && err.text) {
+                                                d.reject({text: err.text});
+                                            } else {
+                                                d.reject({text: 'בעיית רישום'});
+                                            }
+                                        });
                                     });
                                 } else {
                                     d.reject({text: 'ההרשמה נכשלה כי כבר היית רשומה היום'});
@@ -84,8 +97,12 @@ var singleton = function singleton() {
                                 presence.subscribeUserForToday(user, lesson).then(function () {
                                     d.resolve('ההרשמה עברה בהצלחה!');
                                 }).catch(function (err) {
-                                    console.error(TAG + M_TAG, err);
-                                    d.reject({text: 'בעיית רישום'});
+                                    if (err && err.text) {
+                                        d.reject({text: err.text});
+                                    } else {
+                                        console.error(TAG + M_TAG, err);
+                                        d.reject({text: 'בעיית רישום'});
+                                    }
                                 });
                             }
                         } else {
@@ -129,14 +146,31 @@ var singleton = function singleton() {
                                 d.resolve('ההרשמה עברה בהצלחה!');
                             }).catch(function (err) {
                                 console.error(TAG + M_TAG, err);
-                                d.reject({text: 'בעיית רישום'});
+                                presence.subscribeUserForNextDay(user, subscribedLesson).then(function () {
+                                    if (err && err.text) {
+                                        d.reject({text: err.text});
+                                    } else {
+                                        d.reject({text: 'בעיית רישום'});
+                                    }
+                                }).catch(function (reason) {
+                                    console.error(TAG + M_TAG, 'reason:', reason);
+                                    if (err && err.text) {
+                                        d.reject({text: err.text});
+                                    } else {
+                                        d.reject({text: 'בעיית רישום'});
+                                    }
+                                });
                             });
                         } else {
                             presence.subscribeUserForNextDay(user, lesson).then(function () {
                                 d.resolve('ההרשמה עברה בהצלחה!');
                             }).catch(function (err) {
-                                console.error(TAG + M_TAG, err);
-                                d.reject({text: 'בעיית רישום'});
+                                if (err && err.text) {
+                                    d.reject({text: err.text});
+                                } else {
+                                    console.error(TAG + M_TAG, err);
+                                    d.reject({text: 'בעיית רישום'});
+                                }
                             });
                         }
                     }
