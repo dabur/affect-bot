@@ -1,6 +1,5 @@
 var TAG = 'bot';
 var config = require('config');
-var Q = require('q');
 var tel = require('./handler/telegram');
 var model = require('./db/model');
 var utils = require('./utils');
@@ -22,6 +21,12 @@ var PRESS_LESSON_TO_UNSUBSCRIBE_STR = 'כדי להסיר רישום, תלחצי 
 var NEXT_DAY_LESSON_SUBSCRIBE_STR = 'הרשמה לשיעור של מחר';
 var WHO_SUBSCRIBE_TODAY_STR = 'מי רשומה להיום';
 var WHO_SUBSCRIBE_NEXT_DAY_STR = 'מי רשומה למחר';
+var ACTION_SUBSCRIBE_TODAY_STR = 'לרשום לקוחה להיום';
+var ACTION_USER_STR = 'צור לקוח חדש';
+var TEMPLATE_USER_CREATION_STR = 'תכתבי צור לקוח:שם פרטי רווח שם משפחה \n דוגמה: "צור לקוח:דריה וסיוקוב"';
+var USER_CREATION_SUCCESS_STR = 'לקוח נוצר בהצלחה';
+var USER_CREATION_FAIL_STR = 'יצירת לקוח נכשלה';
+var WAIT_CHOOSE_STR = 'ממתין לבחירתך';
 var WHAT_STRS = ['מה?', 'לא יודע איך לענות!', 'אולי דריה תוכל לעזור?'];
 var MAIN_MENU = {
     reply_markup: JSON.stringify({
@@ -47,6 +52,11 @@ var ADMIN_MAIN_MENU = {
                 text: WHO_SUBSCRIBE_TODAY_STR
             }, {
                 text: WHO_SUBSCRIBE_NEXT_DAY_STR
+            }],
+            [{
+                text: ACTION_SUBSCRIBE_TODAY_STR
+            }, {
+                text: ACTION_USER_STR
             }]
         ]
     })
@@ -82,7 +92,7 @@ function runSubscriptionSurvey(subscriptionLesson) {
     var users = model.getAllUsers();
     for (var u = 0; u < users.length; u++) {
         var user = users[u];
-        if (!model.isSubscribedUserForToday(user) && !isAdmin(user.chatId)) {
+        if (!model.isSubscribedUserForToday(user) && !isAdmin(user.chatId) && !user.chatId.startsWith('manual_')) {
             sendSubscriptionSurvey(user, subscriptionLesson, menu);
         }
     }
@@ -182,11 +192,21 @@ function setListeners() {
                 case WHO_SUBSCRIBE_NEXT_DAY_STR:
                     whoSubscribeNextDay(msg);
                     return;
+                case ACTION_SUBSCRIBE_TODAY_STR:
+                    subscribeUserForTodayListUsers(msg);
+                    return;
+                case ACTION_USER_STR:
+                    newUserCreationAsk(msg);
+                    return;
                 case BACK_MAIN_MENU_STR:
                     backMainMenuAns(msg);
                     return;
                 default:
-                    if (msg.text.indexOf(' היום ב ') != -1) {
+                    if (msg.text.indexOf('לרשום להיום את:') != -1) {
+                        lessonManualSubscribe(msg);
+                    } else if (msg.text.indexOf('צור לקוח:') != -1) {
+                        createNewUser(msg);
+                    } else if (msg.text.indexOf(' היום ב ') != -1) {
                         subscribeMeForToday(msg);
                     } else if (msg.text.indexOf(' מחר ב ') != -1) {
                         subscribeMeForNextDay(msg);
@@ -366,9 +386,39 @@ function subscribeMeForToday(msg) {
     }
 }
 
+function subscribeUserForTodayListUsers(msg) {
+    if (!isAdmin(msg.from.id)) {
+        var randomI = Math.floor(Math.random() * Math.floor(WHAT_STRS.length));
+        tel.sendMessage(msg.from.id, WHAT_STRS[randomI], MAIN_MENU);
+    } else {
+        var users = model.getAllUsers();
+        var keyboard = [];
+        for (var u = 0; u < users.length; u++) {
+            var user = users[u];
+            if (user.chatId.startsWith('manual_') && !model.isSubscribedUserForToday(user) && !isAdmin(user.chatId)) {
+                var text = 'לרשום להיום את:' + user.firstName + ' ' + user.lastName;
+                keyboard.push([{
+                    text: text
+                }]);
+            }
+        }
+        keyboard.push([{
+            text: BACK_MAIN_MENU_STR
+        }]);
+        var menu = {
+            reply_markup: JSON.stringify({
+                remove_keyboard: true,
+                keyboard: keyboard
+            })
+        };
+        tel.sendMessage(msg.from.id, WAIT_CHOOSE_STR, menu);
+    }
+}
+
 function subscribeMeForNextDay(msg) {
-    if (isAdmin(msg.from.id)) {
-        tel.sendMessage(msg.from.id, ADMIN_CANNOT_SUBSCRIBE_TO_LESSON_STR, ADMIN_MAIN_MENU);
+    if (!isAdmin(msg.from.id)) {
+        var randomI = Math.floor(Math.random() * Math.floor(WHAT_STRS.length));
+        tel.sendMessage(msg.from.id, WHAT_STRS[randomI], MAIN_MENU);
     } else {
         var txtSplit = msg.text.split(' מחר ב ');
         if (txtSplit.length != 2) {
@@ -534,6 +584,122 @@ function whoSubscribeNextDayList(msg) {
                 tel.sendMessage(msg.from.id, msg.text.split(' רשומות ')[1] + ' עדיין אין רשומות');
             });
         }
+    }
+}
+
+function newUserCreationAsk(msg) {
+    if (isAdmin(msg.from.id)) {
+        tel.sendMessage(msg.from.id, TEMPLATE_USER_CREATION_STR, ADMIN_MAIN_MENU);
+    } else {
+        var randomI = Math.floor(Math.random() * Math.floor(WHAT_STRS.length));
+        tel.sendMessage(msg.from.id, WHAT_STRS[randomI], MAIN_MENU);
+    }
+}
+
+function createNewUser(msg) {
+    var M_TAG = '.createNewUser';
+    if (isAdmin(msg.from.id)) {
+        try {
+            var name = msg.text.split(':')[1].split(' ');
+            var fName = name[0];
+            var lName = name[1];
+            if (!fName || !lName) {
+                tel.sendMessage(msg.from.id, USER_CREATION_FAIL_STR + '\n' + TEMPLATE_USER_CREATION_STR, ADMIN_MAIN_MENU);
+            } else {
+                model.addUser({
+                    chatId: "manual_" + utils.uuid(),
+                    firstName: fName,
+                    lastName: lName,
+                    languageCode: "en-us"
+                }).then(function () {
+                    tel.sendMessage(msg.from.id, USER_CREATION_SUCCESS_STR + ' ( ' + fName + ' ' + lName + ' )', ADMIN_MAIN_MENU);
+                }).catch(function (reason) {
+                    console.error(TAG + M_TAG, 'msg.text:', msg.text, 'reason:', reason);
+                    tel.sendMessage(msg.from.id, ASK_NICK_STR, ADMIN_MAIN_MENU);
+                });
+            }
+        } catch (err) {
+            tel.sendMessage(msg.from.id, USER_CREATION_FAIL_STR + '\n' + TEMPLATE_USER_CREATION_STR, ADMIN_MAIN_MENU);
+        }
+    } else {
+        var randomI = Math.floor(Math.random() * Math.floor(WHAT_STRS.length));
+        tel.sendMessage(msg.from.id, WHAT_STRS[randomI], MAIN_MENU);
+    }
+}
+
+function lessonManualSubscribe(msg) {
+    var M_TAG = '.lessonManualSubscribe';
+    if (isAdmin(msg.from.id)) {
+        try {
+            var splitedtext = msg.text.split(':');
+            if (splitedtext.length == 2) {
+                var name1 = splitedtext[1].split(' ');
+                var fName1 = name1[0];
+                var lName1 = name1[1];
+                if (!fName1 || !lName1) {
+                    tel.sendMessage(msg.from.id, USER_CREATION_FAIL_STR + '\n' + TEMPLATE_USER_CREATION_STR, ADMIN_MAIN_MENU);
+                } else {
+                    var lessons = model.getTodayClosestLessons();
+                    var keyboard = [];
+                    for (var i = 0; i < lessons.length; i++) {
+                        var lesson = lessons[i];
+                        var minuteStr = lesson.minute;
+                        if (minuteStr == '0') {
+                            minuteStr = '00';
+                        }
+                        var text = 'לרשום להיום את:' + fName1 + ' ' + lName1 + ' לשיעור:' + lesson.label + ' ב- ' + lesson.hour + ':' + minuteStr;
+                        keyboard.push([{
+                            text: text
+                        }]);
+                    }
+                    keyboard.push([{
+                        text: BACK_MAIN_MENU_STR
+                    }]);
+                    var menu = {
+                        reply_markup: JSON.stringify({
+                            remove_keyboard: true,
+                            keyboard: keyboard
+                        })
+                    };
+                    tel.sendMessage(msg.from.id, WAIT_CHOOSE_STR, menu);
+                }
+            } else if (splitedtext.length == 4) {
+                var name2 = splitedtext[1].split(' ');
+                var fName2 = name2[0];
+                var lName2 = name2[1];
+                var tmp = splitedtext[2].split(' ב- ');
+                var label = tmp[0];
+                var h = tmp[1];
+                var m = splitedtext[3];
+                var users = model.getAllUsers();
+                var chatId;
+                for (var u = 0; u < users.length; u++) {
+                    var user = users[u];
+                    if (user.chatId.startsWith('manual_') && user.firstName == fName2 && user.lastName == lName2) {
+                        chatId = user.chatId;
+                        break;
+                    }
+                }
+                if (!chatId) {
+                    console.error(TAG + M_TAG, 'msg.text:', msg.text, 'not found chatId:', chatId);
+                    tel.sendMessage(msg.from.id, ASK_NICK_STR, ADMIN_MAIN_MENU);
+                } else {
+                    model.subscribeUserForToday(chatId, label, h, m).then(function (text) {
+                        tel.sendMessage(msg.from.id, text, ADMIN_MAIN_MENU);
+                    }).catch(function (err) {
+                        tel.sendMessage(msg.from.id, err.text);
+                    });
+                }
+            } else {
+                console.error(TAG + M_TAG, 'msg.text:', msg.text, 'reason:', reason);
+                tel.sendMessage(msg.from.id, ASK_NICK_STR, ADMIN_MAIN_MENU);
+            }
+        } catch (err) {
+            tel.sendMessage(msg.from.id, USER_CREATION_FAIL_STR + '\n' + TEMPLATE_USER_CREATION_STR, ADMIN_MAIN_MENU);
+        }
+    } else {
+        var randomI = Math.floor(Math.random() * Math.floor(WHAT_STRS.length));
+        tel.sendMessage(msg.from.id, WHAT_STRS[randomI], MAIN_MENU);
     }
 }
 

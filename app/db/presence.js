@@ -89,9 +89,9 @@ function updateSheet(data) {
     for (var lessonId in data.lessons) {
         if (data.lessons.hasOwnProperty(lessonId)) {
             var lesson = data.lessons[lessonId];
-            for (var chattId in lesson.users) {
-                if (lesson.users.hasOwnProperty(chattId)) {
-                    var arr = [lessonId, chattId];
+            for (var chatId in lesson.users) {
+                if (lesson.users.hasOwnProperty(chatId)) {
+                    var arr = [lessonId, chatId];
                     resource.values.push(arr);
                 }
             }

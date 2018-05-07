@@ -1,6 +1,12 @@
 /**
  * Created by nick on 26/02/18.
  */
+var Uuid = require('uuid');
+
+function uuid() {
+    return Uuid.v1()
+}
+
 function replaceAll(string, find, replace) {
     return string.replace(new RegExp(escapeRegExp(find), 'g'), replace);
 }
@@ -10,5 +16,6 @@ function escapeRegExp(string) {
 }
 
 module.exports = {
-    replaceAll: replaceAll
+    replaceAll: replaceAll,
+    uuid: uuid
 };
