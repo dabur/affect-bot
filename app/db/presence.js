@@ -282,6 +282,14 @@ function getSubscribers(lesson, lessons) {
     return d.promise;
 }
 
+function isTodayLessonFull(lesson) {
+    if (today.lessons.hasOwnProperty(lesson.id)) {
+        return !(today.lessons[lesson.id].count < lesson.capacity);
+    } else {
+        return false;
+    }
+}
+
 module.exports = {
     reload: reload,
     getSubscribedUserForToday: getSubscribedUserForToday,
@@ -293,5 +301,6 @@ module.exports = {
     subscribeUserForNextDay: subscribeUserForNextDay,
     unsubscribeUserForNextDay: unsubscribeUserForNextDay,
     getSubscribeLessonsForNextDay: getSubscribeLessonsForNextDay,
-    getSubscribersForNextDay: getSubscribersForNextDay
+    getSubscribersForNextDay: getSubscribersForNextDay,
+    isTodayLessonFull: isTodayLessonFull
 };

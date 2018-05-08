@@ -26,6 +26,7 @@ var singleton = function singleton() {
     this.getSubscribersForNextDay = getSubscribersForNextDay;
     this.getUserSubscription = getUserSubscription;
     this.isSubscribedUserForToday = isSubscribedUserForToday;
+    this.isTodayLessonFull = isTodayLessonFull;
 
     function addUser(obj) {
         return users.add(obj);
@@ -417,6 +418,10 @@ var singleton = function singleton() {
             }
         }
         return d.promise;
+    }
+
+    function isTodayLessonFull(lesson) {
+        return presence.isTodayLessonFull(lesson);
     }
 
     function init() {

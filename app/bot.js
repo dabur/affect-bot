@@ -64,36 +64,38 @@ var ADMIN_MAIN_MENU = {
 var lessonTimers = [];
 
 function runSubscriptionSurvey(subscriptionLesson) {
-    var lessons = model.getTodayClosestLessons();
-    var keyboard = [];
-    for (var i = 0; i < lessons.length; i++) {
-        var lesson = lessons[i];
-        var minuteStr = lesson.minute;
-        if (minuteStr == '0') {
-            minuteStr = '00';
+    if (!model.isTodayLessonFull(subscriptionLesson)) {
+        var lessons = model.getTodayClosestLessons();
+        var keyboard = [];
+        for (var i = 0; i < lessons.length; i++) {
+            var lesson = lessons[i];
+            var minuteStr = lesson.minute;
+            if (minuteStr == '0') {
+                minuteStr = '00';
+            }
+            var text = '"' + lesson.label + '" היום ב ' + lesson.hour + ':' + minuteStr;
+            keyboard.push([{
+                text: text
+            }]);
         }
-        var text = '"' + lesson.label + '" היום ב ' + lesson.hour + ':' + minuteStr;
         keyboard.push([{
-            text: text
+            text: NEXT_DAY_LESSON_SUBSCRIBE_STR
         }]);
-    }
-    keyboard.push([{
-        text: NEXT_DAY_LESSON_SUBSCRIBE_STR
-    }]);
-    keyboard.push([{
-        text: BACK_MAIN_MENU_STR
-    }]);
-    var menu = {
-        reply_markup: JSON.stringify({
-            remove_keyboard: true,
-            keyboard: keyboard
-        })
-    };
-    var users = model.getAllUsers();
-    for (var u = 0; u < users.length; u++) {
-        var user = users[u];
-        if (!model.isSubscribedUserForToday(user) && !isAdmin(user.chatId) && !user.chatId.startsWith('manual_')) {
-            sendSubscriptionSurvey(user, subscriptionLesson, menu);
+        keyboard.push([{
+            text: BACK_MAIN_MENU_STR
+        }]);
+        var menu = {
+            reply_markup: JSON.stringify({
+                remove_keyboard: true,
+                keyboard: keyboard
+            })
+        };
+        var users = model.getAllUsers();
+        for (var u = 0; u < users.length; u++) {
+            var user = users[u];
+            if (!model.isSubscribedUserForToday(user) && !isAdmin(user.chatId) && !user.chatId.startsWith('manual_')) {
+                sendSubscriptionSurvey(user, subscriptionLesson, menu);
+            }
         }
     }
 }
