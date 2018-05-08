@@ -416,9 +416,8 @@ function subscribeUserForTodayListUsers(msg) {
 }
 
 function subscribeMeForNextDay(msg) {
-    if (!isAdmin(msg.from.id)) {
-        var randomI = Math.floor(Math.random() * Math.floor(WHAT_STRS.length));
-        tel.sendMessage(msg.from.id, WHAT_STRS[randomI], MAIN_MENU);
+    if (isAdmin(msg.from.id)) {
+        tel.sendMessage(msg.from.id, ADMIN_CANNOT_SUBSCRIBE_TO_LESSON_STR, ADMIN_MAIN_MENU);
     } else {
         var txtSplit = msg.text.split(' מחר ב ');
         if (txtSplit.length != 2) {
