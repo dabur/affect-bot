@@ -3,70 +3,94 @@ var config = require('config');
 var Q = require('q');
 var moment = require('moment');
 var sheet = require('../handler/spreadsheet');
-var schedule = require('./schedule');
 var SPREADSHEET_ID = config.spreadsheets.presence;
-var nextDay = {subscribers: {}, lessons: {}};
-var today = {subscribers: {}, lessons: {}};
-var OVER_CAPACITY_STR = "ההרשמה נכשלה: השיעור המלא";
+var presence = {
+    byLessonId: {},
+    byChatId: {},
+    allButThisWeek: []
+};
+
+// Public //----------------------------------------------------------------------------------------------------------//
+module.exports = {
+    reload: reload,
+    add: add,
+    getByLessonId: getByLessonId,
+    getByChatId: getByChatId
+};
 
 function reload(users, lessons) {
-    return reloadToday(users, lessons).then(function () {
-        return reloadNextDay(users, lessons);
-    });
-}
-
-function reloadToday(users, lessons) {
-    var d = Q.defer();
     var date = new Date();
-    reloadFromSheet(moment(date).format("YYYYMMDD").toString(), users, lessons).then(function (result) {
-        today = result;
-        d.resolve(true);
-    }).catch(function (reason) {
-        d.reject(reason);
-    });
-    return d.promise;
+    var label = moment(date).format("YYYYMM").toString();
+    return reloadByLabel(label, users, lessons, true);
 }
 
-function reloadNextDay(users, lessons) {
-    var d = Q.defer();
-    var date = new Date();
-    date.setDate(date.getDate() + 1);
-    reloadFromSheet(moment(date).format("YYYYMMDD").toString(), users, lessons).then(function (result) {
-        nextDay = result;
-        d.resolve(true);
-    }).catch(function (reason) {
-        d.reject(reason);
-    });
-    return d.promise;
+function add(chatId, lessonId) {
+    //duplicate check
+    var obj = {chatId: chatId, lessonId: lessonId};
+    if (!presence.byLessonId[lessonId]) {
+        presence.byLessonId[lessonId] = [];
+    }
+    presence.byLessonId[lessonId].push(chatId);
+    if (!presence.byChatId[chatId]) {
+        presence.byChatId[chatId] = [];
+    }
+    presence.byChatId[chatId].push(lessonId);
+    update();
 }
 
-function reloadFromSheet(label, users, lessons) {
+function getByLessonId(lessonId) {
+    return presence.byLessonId[lessonId]
+}
+
+function getByChatId(chatId) {
+    return presence.byChatId[chatId];
+}
+//----------------------------------------------------------------------------------------------------------// Public //
+
+function reloadByLabel(label, users, lessons, createIfNeed) {
     var d = Q.defer();
-    var ans = {label: label, subscribers: {}, lessons: {}};
     sheet.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: label + '!A2:B',
+        range: label + '!A2:C',
     }).then(function (results) {
+        var byLessonId = {};
+        var byChatId = {};
+        var allButThisWeek = [];
         for (var i = 0; results && i < results.length; i++) {
             var result = results[i];
-            var lesson = lessons[result[0]];
-            var user = users.get(result[1]);
-            if (!ans.lessons[lesson.id]) {
-                ans.lessons[lesson.id] = {
-                    count: 0,
-                    users: {}
-                };
+            var week = result[0];
+            var date = new Date();
+            var thisWeek = parseInt(moment(date).format("DD").toString()) % 7;
+            var lessonId = result[1];
+            var chatId = result[2];
+            if (thisWeek == week) {
+                if (users.byChatId[chatId] && lessons.byId[lessonId]) {
+                    if (!byLessonId[lessonId]) {
+                        byLessonId[lessonId] = [];
+                    }
+                    byLessonId[lessonId].push(chatId);
+                    if (!byChatId[chatId]) {
+                        byChatId[chatId] = [];
+                    }
+                    byChatId[chatId].push(lessonId);
+                }
+            } else {
+                allButThisWeek.push([week, lessonId, chatId]);
             }
-            if (!ans.lessons[lesson.id].users[user.chatId]) {
-                ans.lessons[lesson.id].users[user.chatId] = user;
-                ans.lessons[lesson.id].count++;
-            }
-            ans.subscribers[user.chatId] = lesson;
         }
-        d.resolve(ans);
+        presence.byLessonId = byLessonId;
+        presence.byChatId = byChatId;
+        presence.allButThisWeek = allButThisWeek;
+        d.resolve(true);
     }).catch(function (reason) {
-        if (reason.code && reason.code == 400) {
-            d.resolve(ans);
+        if (reason.code && reason.code == 400 && createIfNeed) {
+            createSheet(label).then(function () {
+                return reloadByLabel(label, users, lessons);
+            }).then(function () {
+                d.resolve(true);
+            }).catch(function (reason) {
+                d.reject(reason);
+            });
         } else {
             d.reject(reason);
         }
@@ -74,58 +98,37 @@ function reloadFromSheet(label, users, lessons) {
     return d.promise;
 }
 
-function updateToday() {
-    return updateSheet(today);
-}
-
-function updateNextDay() {
-    return updateSheet(nextDay);
-}
-
-function updateSheet(data) {
-    var M_TAG = '.updateSheet';
+function update() {
+    var M_TAG = '.update';
     var d = Q.defer();
     var resource = {values: []};
-    for (var lessonId in data.lessons) {
-        if (data.lessons.hasOwnProperty(lessonId)) {
-            var lesson = data.lessons[lessonId];
-            for (var chatId in lesson.users) {
-                if (lesson.users.hasOwnProperty(chatId)) {
-                    var arr = [lessonId, chatId];
-                    resource.values.push(arr);
-                }
-            }
+    for (var i in presence.allButThisWeek) {
+        var arrAll = presence.allButThisWeek[i];
+        resource.values.push([arrAll[0], arrAll[1], arrAll[2]]);
+    }
+    var date = new Date();
+    var week = parseInt(moment(date).format("DD").toString()) % 7;
+    for (var chatId in presence.byChatId) {
+        var byChatId = presence.byChatId[chatId];
+        for (var j = 0; j < byChatId.length; j++) {
+            var lessonId = byChatId[j];
+            resource.values.push([week, lessonId, chatId]);
         }
     }
     while (resource.values.length < 100) {
-        resource.values.push(["", ""]);
+        resource.values.push(["", "", ""]);
     }
+    var label = moment(date).format("YYYYMM").toString();
     sheet.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: data.label + '!A2:B',
+        range: label + '!A2:C',
         valueInputOption: 'USER_ENTERED',
         resource: resource
     }).then(function () {
         d.resolve(true);
     }).catch(function (reason) {
-        if (reason.code && reason.code == 400) {
-            createSheet(data.label).then(function () {
-                return sheet.update({
-                    spreadsheetId: SPREADSHEET_ID,
-                    range: data.label + '!A2:B',
-                    valueInputOption: 'USER_ENTERED',
-                    resource: resource
-                });
-            }).then(function () {
-                d.resolve(true);
-            }).catch(function (reason) {
-                console.error(TAG + M_TAG, reason);
-                d.reject(reason);
-            });
-        } else {
-            console.error(TAG + M_TAG, reason);
-            d.reject(reason);
-        }
+        console.error(TAG + M_TAG, reason);
+        d.reject(reason);
     });
     return d.promise;
 }
@@ -140,7 +143,7 @@ function createSheet(label) {
                     title: label,
                     gridProperties: {
                         rowCount: 100,
-                        columnCount: 2
+                        columnCount: 3
                     }
                 }
             }
@@ -152,9 +155,9 @@ function createSheet(label) {
     }).then(function () {
         return sheet.update({
             spreadsheetId: SPREADSHEET_ID,
-            range: label + '!A1:B1',
+            range: label + '!A1:C1',
             valueInputOption: 'USER_ENTERED',
-            resource: {values: [['lessonId', 'chatId']]}
+            resource: {values: [['week', 'lessonId', 'chatId']]}
         });
     }).then(function () {
         d.resolve(true);
@@ -163,144 +166,3 @@ function createSheet(label) {
     });
     return d.promise;
 }
-
-function getSubscribedUserForToday(user) {
-    return getSubscribedUser(user, today.subscribers);
-}
-
-function unsubscribeUserForToday(user, lesson) {
-    return unsubscribeUser(user, lesson, today.lessons, today.subscribers).then(function () {
-        return updateToday();
-    });
-}
-
-function subscribeUserForToday(user, lesson) {
-    return subscribeUser(user, lesson, today.lessons, today.subscribers).then(function () {
-        return updateToday();
-    });
-}
-
-function getSubscribedUserForNextDay(user) {
-    return getSubscribedUser(user, nextDay.subscribers);
-}
-
-function unsubscribeUserForNextDay(user, lesson) {
-    return unsubscribeUser(user, lesson, nextDay.lessons, nextDay.subscribers).then(function () {
-        return updateNextDay();
-    });
-}
-
-function subscribeUserForNextDay(user, lesson) {
-    return subscribeUser(user, lesson, nextDay.lessons, nextDay.subscribers).then(function () {
-        return updateNextDay();
-    });
-}
-
-function getSubscribedUser(user, subscribers) {
-    return subscribers[user.chatId];
-}
-
-function unsubscribeUser(user, lesson, lessons, subscribers) {
-    var d = Q.defer();
-    if (!lessons[lesson.id]) {
-        d.resolve(false);
-    } else {
-        if (lessons[lesson.id].users[user.chatId]) {
-            delete lessons[lesson.id].users[user.chatId];
-            lessons[lesson.id].count--;
-        }
-        if (subscribers[user.chatId]) {
-            delete subscribers[user.chatId];
-        }
-        d.resolve(true);
-    }
-    return d.promise;
-}
-
-function subscribeUser(user, lesson, lessons, subscribers) {
-    var d = Q.defer();
-    if (!lessons[lesson.id]) {
-        lessons[lesson.id] = {
-            count: 0,
-            users: {}
-        };
-    }
-    if (lessons[lesson.id].count < lesson.capacity) {
-        if (!lessons[lesson.id].users[user.chatId]) {
-            lessons[lesson.id].users[user.chatId] = user;
-            lessons[lesson.id].count++;
-        }
-        subscribers[user.chatId] = lesson;
-        d.resolve(true);
-    } else {
-        d.reject({
-            text: OVER_CAPACITY_STR
-        });
-    }
-    return d.promise;
-}
-
-function getSubscribeLessonsForToday() {
-    return getSubscribeLessons(today.lessons);
-}
-
-function getSubscribeLessonsForNextDay() {
-    return getSubscribeLessons(nextDay.lessons);
-}
-
-function getSubscribeLessons(lessons) {
-    var ans = [];
-    for (var i in lessons) {
-        if (lessons.hasOwnProperty(i)) {
-            var lesson = lessons[i];
-            if (lesson.count > 0) {
-                ans.push({
-                    id: i,
-                    count: lesson.count
-                });
-            }
-        }
-    }
-    return ans;
-}
-
-function getSubscribersForToday(lesson) {
-    return getSubscribers(lesson, today.lessons);
-}
-
-function getSubscribersForNextDay(lesson) {
-    return getSubscribers(lesson, nextDay.lessons);
-}
-
-function getSubscribers(lesson, lessons) {
-    var d = Q.defer();
-    if (lessons[lesson.id] && lessons[lesson.id].count > 0) {
-        d.resolve(lessons[lesson.id].users);
-    } else {
-        d.reject('no subscribers found');
-    }
-    return d.promise;
-}
-
-function isTodayLessonFull(lesson) {
-    if (today.lessons.hasOwnProperty(lesson.id)) {
-        return !(today.lessons[lesson.id].count < lesson.capacity);
-    } else {
-        return false;
-    }
-}
-
-module.exports = {
-    reload: reload,
-    getSubscribedUserForToday: getSubscribedUserForToday,
-    subscribeUserForToday: subscribeUserForToday,
-    unsubscribeUserForToday: unsubscribeUserForToday,
-    getSubscribeLessonsForToday: getSubscribeLessonsForToday,
-    getSubscribersForToday: getSubscribersForToday,
-    getSubscribedUserForNextDay: getSubscribedUserForNextDay,
-    subscribeUserForNextDay: subscribeUserForNextDay,
-    unsubscribeUserForNextDay: unsubscribeUserForNextDay,
-    getSubscribeLessonsForNextDay: getSubscribeLessonsForNextDay,
-    getSubscribersForNextDay: getSubscribersForNextDay,
-    isTodayLessonFull: isTodayLessonFull
-};

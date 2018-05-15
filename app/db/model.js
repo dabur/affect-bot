@@ -1,18 +1,43 @@
 var singleton = function singleton() {
     var TAG = 'db.model';
     var Q = require('q');
+    var config = require('config');
+    var admins = {};
+    for (var a = 0; a < config.admins.length; a++) {
+        admins[config.admins[a]] = {chatId: config.admins[a]};
+    }
+
     var sheet = require('../handler/spreadsheet');
     var users = require('./users');
+    var lessons = require('./lessons');
     var presence = require('./presence');
-    var schedule = require('./schedule');
     var today;
     var todayLessons;
     var nextDayLessons;
 
+    // Public //------------------------------------------------------------------------------------------------------//
     this.init = init;
-    this.reload = reload;
+    this.isAdmin = isAdmin;
     this.addUser = addUser;
     this.getUser = getUser;
+
+    function init() {
+        return sheet.init().then(function () {
+            return users.init().then(function () {
+                return lessons.init().then(function () {
+                    return presence.reload(users,lessons);
+                });
+            });
+        });
+    }
+
+    function isAdmin(chatId) {
+        return !!admins[chatId];
+    }
+
+    //------------------------------------------------------------------------------------------------------// Public //
+
+    this.reload = reload;
     this.getAllUsers = getAllUsers;
     this.getTodayClosestLessons = getTodayClosestLessons;
     this.subscribeUserForToday = subscribeUserForToday;
@@ -422,12 +447,6 @@ var singleton = function singleton() {
 
     function isTodayLessonFull(lesson) {
         return presence.isTodayLessonFull(lesson);
-    }
-
-    function init() {
-        return sheet.init().then(function () {
-            return users.init();
-        });
     }
 
     function reload() {
