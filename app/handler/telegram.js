@@ -34,11 +34,11 @@ var singleton = function singleton() {
     //------------------------------------------------------------------------------------------------------// Public //
 
     conn.on('polling_error', function (error) {
-        console.warn(TAG + ' on(polling_error)', error);
+        console.warn(TAG + ' on(polling_error) error:', error);
     });
 
     conn.on('webhook_error', function (error) {
-        console.warn(TAG + ' on(webhook_error)', error);
+        console.warn(TAG + ' on(webhook_error) error:', error);
     });
 
     if (singleton.caller != singleton.getInstance) {
