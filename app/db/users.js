@@ -67,7 +67,9 @@ function get(chatId) {
 function getAll() {
     var arr = [];
     for (var chatId in users.byChatId) {
-        arr.push(users.byChatId[chatId]);
+        if (users.byChatId.hasOwnProperty(chatId)) {
+            arr.push(users.byChatId[chatId]);
+        }
     }
     return arr;
 }
@@ -77,13 +79,15 @@ function update() {
     var d = Q.defer();
     var resource = {values: []};
     for (var chatId in users.byChatId) {
-        var row = users.byChatId[chatId];
-        var arr = [
-            row.chatId,
-            row.firstName,
-            row.lastName
-        ];
-        resource.values.push(arr);
+        if (users.byChatId.hasOwnProperty(chatId)) {
+            var row = users.byChatId[chatId];
+            var arr = [
+                row.chatId,
+                row.firstName,
+                row.lastName
+            ];
+            resource.values.push(arr);
+        }
     }
     sheet.update({
         spreadsheetId: SPREADSHEET_ID,

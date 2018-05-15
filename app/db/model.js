@@ -6,7 +6,6 @@ var singleton = function singleton() {
     for (var a = 0; a < config.admins.length; a++) {
         admins[config.admins[a]] = {chatId: config.admins[a]};
     }
-
     var sheet = require('../handler/spreadsheet');
     var users = require('./users');
     var lessons = require('./lessons');
@@ -25,7 +24,7 @@ var singleton = function singleton() {
         return sheet.init().then(function () {
             return users.init().then(function () {
                 return lessons.init().then(function () {
-                    return presence.reload(users,lessons);
+                    return presence.init(users, lessons);
                 });
             });
         });
