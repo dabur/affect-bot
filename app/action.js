@@ -11,18 +11,15 @@ var utils = require('./utils');
 var DEFAULT_TXT = ['מה?', 'לא יודע איך לענות!', 'אולי דריה תוכל לעזור?'];
 var ADMIN_DEFAULT_TXT = 'תשאלי את ניק!';
 var WELCOME_TXT = 'היי ' + '%FIRST_NAME%' + '!\n' + 'ברוכה הבאה לקבוצת רישום לשיעורים של Affect';
-
-var MAIN_MENU_TXT = 'תפריט ראשי';
 var WAITING_FOR_YOUR_CHOOSE_TXT = 'ממתין לבחירתך..';
 var CHOOSE_DAY_TXT = 'תבחרי יום רצוי להרשמה';
 var CHOOSE_LESSON_TXT = 'תבחרי שיעור רצוי להרשמה';
-
 var SUCCESS_SUB_TXT = 'הרישום עבר בהצלחה!';
 var SUCCESS_UNSUB_TXT = 'הרישום הוסר עבר בהצלחה!';
-
 var LESSONS_YOU_SUB_TXT = 'שיעורים להם את רשומה';
 var UNSUB_CHOOSE_TXT = 'להסרה, תלחצי על השיעור';
 var SUB_TXT = 'רשומות ל';
+var FAIL_SUB_TXT = 'הפעולה נכשלה. הסיבה:';
 
 //button labels
 var MY_SUB_LABEL = 'השיעורים שאני רשומה';
@@ -31,14 +28,12 @@ var SUB_LIST_LABEL = 'רשימת הרשומות';
 var ADMIN_CREATE_USER_LABEL = 'צור לקוחה חדש';
 var ADMIN_SUB_USER_LABEL = 'לרשום לקוחה';
 
-var MAIN_LABEL = 'תפריט ראשי';
-
-var FAIL_SUB_TXT = 'הפעולה נכשלה. סיבה:';
 var SUB_FAIL_CODE = {
     500: {txt: 'שגיאת מערכת'},
     400: {txt: 'לקוח לא קיים במערכת'},
     401: {txt: 'שיעור לא קיים במערכת'}
 };
+
 var DAY_LABEL = {
     0: 'ראשון',
     1: 'שני',
@@ -48,6 +43,7 @@ var DAY_LABEL = {
     5: 'שישי',
     6: 'שבת'
 };
+
 var qKeys = {};
 var messages = {
     '/start': msgStart
@@ -56,9 +52,8 @@ messages[MY_SUB_LABEL] = mySub;
 messages[SUB_LIST_LABEL] = subList;
 messages[ADMIN_CREATE_USER_LABEL] = adminCreateUser;
 messages[ADMIN_SUB_USER_LABEL] = adminSubUser;
-messages[MAIN_LABEL] = mainMenu;
 
-//keyboards
+//static keyboards
 var MAIN_KEYBOARD = {
     reply_markup: JSON.stringify({
         keyboard: [
@@ -85,33 +80,9 @@ var ADMIN_MAIN_KEYBOARD = {
         ]
     })
 };
-var SUB_KEYBOARD = {
-    reply_markup: JSON.stringify({
-        keyboard: [
-            [{
-                text: MY_SUB_LABEL
-            }], [{
-                text: SUB_LIST_LABEL
-            }], [{
-                text: MAIN_LABEL
-            }]
-        ]
-    })
-};
+
+//dynamic keyboards
 var SUB_INLINE_KEYBOARD = [];
-var MY_SUB_KEYBOARD = {
-    reply_markup: JSON.stringify({
-        keyboard: [
-            [{
-                text: SUB_LABEL
-            }], [{
-                text: SUB_LIST_LABEL
-            }], [{
-                text: MAIN_LABEL
-            }]
-        ]
-    })
-};
 
 // Public //----------------------------------------------------------------------------------------------------------//
 module.exports = {
@@ -197,7 +168,7 @@ function mySub(msg) {
         };
         d.resolve({
             txt: LESSONS_YOU_SUB_TXT,
-            keyboard: MY_SUB_KEYBOARD,
+            keyboard: defaultKeyboard(msg),
             inline_txt: UNSUB_CHOOSE_TXT,
             inline_keyboard: inlineKeyboard
         });
@@ -227,7 +198,7 @@ function sub(msg) {
     };
     d.resolve({
         txt: CHOOSE_DAY_TXT,
-        keyboard: SUB_KEYBOARD,
+        keyboard: defaultKeyboard(msg),
         inline_txt: WAITING_FOR_YOUR_CHOOSE_TXT,
         inline_keyboard: inlineKeyboard
     });
@@ -259,7 +230,7 @@ function subList(msg) {
         };
         d.resolve({
             txt: LESSONS_YOU_SUB_TXT,
-            keyboard: MY_SUB_KEYBOARD,
+            keyboard: defaultKeyboard(msg),
             inline_txt: UNSUB_CHOOSE_TXT,
             inline_keyboard: inlineKeyboard
         });
@@ -292,15 +263,6 @@ function adminSubUser(msg) {
     d.resolve({
         txt: msg.text,
         keyboard: defaultKeyboard(msg)
-    });
-    return d.promise;
-}
-
-function mainMenu() {
-    var d = Q.defer();
-    d.resolve({
-        txt: MAIN_MENU_TXT,
-        keyboard: MAIN_KEYBOARD
     });
     return d.promise;
 }
@@ -407,7 +369,7 @@ function querySub(key, d) {
     };
     d.resolve({
         txt: CHOOSE_LESSON_TXT,
-        keyboard: SUB_KEYBOARD,
+        keyboard: defaultKeyboard(msg),
         inline_txt: WAITING_FOR_YOUR_CHOOSE_TXT,
         inline_keyboard: inlineKeyboard
     });
@@ -419,7 +381,7 @@ function querySubLesson(msg, subKeys, d) {
     subUser(msg.from.id, lessonId).then(()=> {
         d.resolve({
             txt: SUCCESS_SUB_TXT,
-            keyboard: MAIN_KEYBOARD
+            keyboard: defaultKeyboard(msg)
         });
     }).catch((reason)=> {
         var txt = FAIL_SUB_TXT;
@@ -441,7 +403,7 @@ function queryUnsubLesson(msg, subKeys, d) {
     unsubUser(msg.from.id, subLessonId).then(()=> {
         d.resolve({
             txt: SUCCESS_UNSUB_TXT,
-            keyboard: MAIN_KEYBOARD
+            keyboard: defaultKeyboard(msg)
         });
     }).catch((reason)=> {
         var txt = FAIL_SUB_TXT;
