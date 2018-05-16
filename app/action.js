@@ -1,7 +1,9 @@
 /**
  * Created by nick on 14/05/18.
  */
+var TAG = 'app.action';
 var Q = require('q');
+var moment = require('moment');
 var model = require('./db/model');
 var utils = require('./utils');
 
@@ -16,6 +18,11 @@ var CHOOSE_DAY_TXT = 'תבחרי יום רצוי להרשמה';
 var CHOOSE_LESSON_TXT = 'תבחרי שיעור רצוי להרשמה';
 
 var SUCCESS_SUB_TXT = 'הרישום עבר בהצלחה!';
+var SUCCESS_UNSUB_TXT = 'הרישום הוסר עבר בהצלחה!';
+
+var LESSONS_YOU_SUB_TXT = 'שיעורים להם את רשומה';
+var UNSUB_CHOOSE_TXT = 'להסרה, תלחצי על השיעור';
+var SUB_TXT = 'רשומות ל';
 
 //button labels
 var MY_SUB_LABEL = 'השיעורים שאני רשומה';
@@ -23,32 +30,32 @@ var SUB_LABEL = 'הרשמה לשיעור';
 var SUB_LIST_LABEL = 'רשימת הרשומות';
 var ADMIN_CREATE_USER_LABEL = 'צור לקוחה חדש';
 var ADMIN_SUB_USER_LABEL = 'לרשום לקוחה';
-var ADMIN_SUB_LIST_LABEL = 'רשימת הרשומות';
 
 var MAIN_LABEL = 'תפריט ראשי';
 
+var FAIL_SUB_TXT = 'הפעולה נכשלה. סיבה:';
+var SUB_FAIL_CODE = {
+    500: {txt: 'שגיאת מערכת'},
+    400: {txt: 'לקוח לא קיים במערכת'},
+    401: {txt: 'שיעור לא קיים במערכת'}
+};
+var DAY_LABEL = {
+    0: 'ראשון',
+    1: 'שני',
+    2: 'שלישי',
+    3: 'רביעי',
+    4: 'חמישי',
+    5: 'שישי',
+    6: 'שבת'
+};
 var qKeys = {};
-var Q_SUB_0 = {key: 'sub::0', label: 'ראשון'};
-var Q_SUB_1 = {key: 'sub::1', label: 'שני'};
-var Q_SUB_2 = {key: 'sub::2', label: 'שלישי'};
-var Q_SUB_3 = {key: 'sub::3', label: 'רביעי'};
-var Q_SUB_4 = {key: 'sub::4', label: 'חמישי'};
-var Q_SUB_5 = {key: 'sub::5', label: 'שישי'};
-qKeys[Q_SUB_0.key] = qSub0;
-var Q_SUB_0_1 = {key: 'sub::0::1', label: 'עיצוב וחיטוב 19:00'};
-var Q_SUB_0_2 = {key: 'sub::0::2', label: 'HIIT 20:00'};
-var Q_SUB_0_3 = {key: 'sub::0::3', label: 'פילאטיס 21:00'};
-qKeys[Q_SUB_0_1.key] = qSub01;
-
 var messages = {
     '/start': msgStart
 };
 messages[MY_SUB_LABEL] = mySub;
-messages[SUB_LABEL] = sub;
 messages[SUB_LIST_LABEL] = subList;
 messages[ADMIN_CREATE_USER_LABEL] = adminCreateUser;
 messages[ADMIN_SUB_USER_LABEL] = adminSubUser;
-messages[ADMIN_SUB_LIST_LABEL] = adminSubList;
 messages[MAIN_LABEL] = mainMenu;
 
 //keyboards
@@ -73,7 +80,7 @@ var ADMIN_MAIN_KEYBOARD = {
             }], [{
                 text: ADMIN_SUB_USER_LABEL
             }], [{
-                text: ADMIN_SUB_LIST_LABEL
+                text: SUB_LIST_LABEL
             }]
         ]
     })
@@ -91,50 +98,16 @@ var SUB_KEYBOARD = {
         ]
     })
 };
-var SUB_INLINE_KEYBOARD = {
+var SUB_INLINE_KEYBOARD = [];
+var MY_SUB_KEYBOARD = {
     reply_markup: JSON.stringify({
-        inline_keyboard: [[
-            {
-                text: Q_SUB_5.label,
-                callback_data: Q_SUB_5.key
-            },
-            {
-                text: Q_SUB_4.label,
-                callback_data: Q_SUB_4.key
-            },
-            {
-                text: Q_SUB_3.label,
-                callback_data: Q_SUB_3.key
-            },
-            {
-                text: Q_SUB_2.label,
-                callback_data: Q_SUB_2.key
-            },
-            {
-                text: Q_SUB_1.label,
-                callback_data: Q_SUB_1.key
-            },
-            {
-                text: Q_SUB_0.label,
-                callback_data: Q_SUB_0.key
-            }
-        ]]
-    })
-};
-var SUB_LESSON_INLINE_KEYBOARD = {
-    reply_markup: JSON.stringify({
-        inline_keyboard: [
+        keyboard: [
             [{
-                text: Q_SUB_0_1.label,
-                callback_data: Q_SUB_0_1.key
-            }],
-            [{
-                text: Q_SUB_0_2.label,
-                callback_data: Q_SUB_0_2.key
-            }],
-            [{
-                text: Q_SUB_0_3.label,
-                callback_data: Q_SUB_0_3.key
+                text: SUB_LABEL
+            }], [{
+                text: SUB_LIST_LABEL
+            }], [{
+                text: MAIN_LABEL
             }]
         ]
     })
@@ -151,19 +124,15 @@ module.exports = {
 };
 
 function init() {
-    var d = Q.defer();
-    model.init().then(()=> {
-        d.resolve(true);
-    }).catch((reason)=> {
-        d.reject(reason);
+    return model.init().then(()=> {
+        return initQuery();
     });
-    return d.promise;
 }
 
 function query(key, msg) {
     var d = Q.defer();
     if (qKeys.hasOwnProperty(key)) {
-        qKeys[key](msg).then((result)=> {
+        qKeys[key].fun(key, msg).then((result)=> {
             d.resolve(result);
         }).catch(d.reject);
     } else {
@@ -207,30 +176,104 @@ function msgStart(msg) {
 }
 
 function mySub(msg) {
+    var M_TAG = '.mySub';
     var d = Q.defer();
-    d.resolve({
-        txt: msg.text,
-        keyboard: defaultKeyboard(msg)
+    model.getLessonsByChatId(msg.from.id).then((lessons)=> {
+        var keyboard = [];
+        for (var i = 0; i < lessons.length; i++) {
+            var lesson = lessons[i];
+            var unsubLessonKey = 'unsub::' + lesson.day + '::' + lesson.id;
+            if (qKeys[unsubLessonKey]) {
+                keyboard.push([{
+                    text: qKeys[unsubLessonKey].label,
+                    callback_data: qKeys[unsubLessonKey].key
+                }]);
+            }
+        }
+        var inlineKeyboard = {
+            reply_markup: JSON.stringify({
+                inline_keyboard: keyboard
+            })
+        };
+        d.resolve({
+            txt: LESSONS_YOU_SUB_TXT,
+            keyboard: MY_SUB_KEYBOARD,
+            inline_txt: UNSUB_CHOOSE_TXT,
+            inline_keyboard: inlineKeyboard
+        });
+    }).catch((reason)=> {
+        var txt = FAIL_SUB_TXT;
+        if (reason.code && SUB_FAIL_CODE[reason.code]) {
+            txt += SUB_FAIL_CODE[reason.code].txt;
+        } else {
+            console.error(TAG + M_TAG, 'reason:', reason);
+            txt += SUB_FAIL_CODE[500].txt;
+        }
+        d.resolve({
+            txt: txt
+        });
     });
     return d.promise;
 }
 
-function sub() {
+function sub(msg) {
     var d = Q.defer();
+    var inlineKeyboard = {
+        reply_markup: JSON.stringify({
+            inline_keyboard: [
+                SUB_INLINE_KEYBOARD
+            ]
+        })
+    };
     d.resolve({
         txt: CHOOSE_DAY_TXT,
         keyboard: SUB_KEYBOARD,
         inline_txt: WAITING_FOR_YOUR_CHOOSE_TXT,
-        inline_keyboard: SUB_INLINE_KEYBOARD
+        inline_keyboard: inlineKeyboard
     });
     return d.promise;
 }
 
 function subList(msg) {
+    var M_TAG = '.subList';
     var d = Q.defer();
-    d.resolve({
-        txt: msg.text,
-        keyboard: defaultKeyboard(msg)
+    model.getSubLessons().then((lessons)=> {
+        var keyboard = [];
+        for (var i = 0; i < lessons.length; i++) {
+            var lesson = lessons[i];
+            if (lesson.count > 0) {
+                var key = 'fullsublist::' + lesson.day + '::' + lesson.id;
+                var label = DAY_LABEL[lesson.day] + ': ' + lesson.label;
+                if (qKeys[key]) {
+                    keyboard.push([{
+                        text: label + ' רשומות:' + lesson.count,
+                        callback_data: qKeys[key].key
+                    }]);
+                }
+            }
+        }
+        var inlineKeyboard = {
+            reply_markup: JSON.stringify({
+                inline_keyboard: keyboard
+            })
+        };
+        d.resolve({
+            txt: LESSONS_YOU_SUB_TXT,
+            keyboard: MY_SUB_KEYBOARD,
+            inline_txt: UNSUB_CHOOSE_TXT,
+            inline_keyboard: inlineKeyboard
+        });
+    }).catch((reason)=> {
+        var txt = FAIL_SUB_TXT;
+        if (reason.code && SUB_FAIL_CODE[reason.code]) {
+            txt += SUB_FAIL_CODE[reason.code].txt;
+        } else {
+            console.error(TAG + M_TAG, 'reason:', reason);
+            txt += SUB_FAIL_CODE[500].txt;
+        }
+        d.resolve({
+            txt: txt
+        });
     });
     return d.promise;
 }
@@ -253,15 +296,6 @@ function adminSubUser(msg) {
     return d.promise;
 }
 
-function adminSubList(msg) {
-    var d = Q.defer();
-    d.resolve({
-        txt: msg.text,
-        keyboard: defaultKeyboard(msg)
-    });
-    return d.promise;
-}
-
 function mainMenu() {
     var d = Q.defer();
     d.resolve({
@@ -273,21 +307,223 @@ function mainMenu() {
 //---------------------------------------------------------------------------------------------------------// Message //
 
 // Query //-----------------------------------------------------------------------------------------------------------//
-function qSub0(key, msg) {
+function initQuery() {
     var d = Q.defer();
+    var lessons = model.getLessons();
+    for (var i = 0; i < lessons.length; i++) {
+        var lesson = lessons[i];
+        var dayKey = 'sub::' + lesson.day;
+        if (!qKeys[dayKey]) {
+            qKeys[dayKey] = {
+                key: dayKey,
+                label: DAY_LABEL[lesson.day],
+                keyboard: [],
+                fun: queryFunction
+            };
+            SUB_INLINE_KEYBOARD.unshift({
+                text: DAY_LABEL[lesson.day],
+                callback_data: dayKey
+            });
+        }
+        var subLessonKey = 'sub::' + lesson.day + '::' + lesson.id;
+        var minute = lesson.minute;
+        if (minute == '0') {
+            minute = '00';
+        }
+        var lessonLabel = lesson.label + ' ' + lesson.hour + ':' + minute;
+        qKeys[subLessonKey] = {
+            key: subLessonKey,
+            label: DAY_LABEL[lessonLabel],
+            fun: queryFunction
+        };
+        qKeys[dayKey].keyboard.push([{
+            text: lessonLabel,
+            callback_data: subLessonKey
+        }]);
+        var unsubLessonKey = 'unsub::' + lesson.day + '::' + lesson.id;
+        qKeys[unsubLessonKey] = {
+            key: unsubLessonKey,
+            label: DAY_LABEL[lesson.day] + ': ' + lessonLabel,
+            fun: queryFunction
+        };
+        var fullsublistKey = 'fullsublist::' + lesson.day + '::' + lesson.id;
+        qKeys[fullsublistKey] = {
+            key: fullsublistKey,
+            fun: queryFunction
+        };
+    }
+    messages[SUB_LABEL] = sub;
+    d.resolve(true);
+    return d.promise;
+}
+
+function queryFunction(key, msg) {
+    var d = Q.defer();
+    var subKeys = key.split('::');
+    var action = subKeys[0];
+    if (action == 'sub') {
+        if (subKeys.length == 2) {
+            querySub(key, d);
+        } else if (subKeys.length == 3) {
+            querySubLesson(msg, subKeys, d);
+        } else {
+            d.resolve({
+                txt: defaultTxt(msg),
+                keyboard: defaultKeyboard(msg)
+            });
+        }
+    } else if (action == 'unsub') {
+        if (subKeys.length == 3) {
+            queryUnsubLesson(msg, subKeys, d);
+        } else {
+            d.resolve({
+                txt: defaultTxt(msg),
+                keyboard: defaultKeyboard(msg)
+            });
+        }
+    } else if (action == 'fullsublist') {
+        if (subKeys.length == 3) {
+            queryFullSubLList(msg, subKeys, d);
+        } else {
+            d.resolve({
+                txt: defaultTxt(msg),
+                keyboard: defaultKeyboard(msg)
+            });
+        }
+    } else {
+        d.resolve({
+            txt: defaultTxt(msg),
+            keyboard: defaultKeyboard(msg)
+        });
+    }
+    return d.promise;
+}
+
+function querySub(key, d) {
+    var inlineKeyboard = {
+        reply_markup: JSON.stringify({
+            inline_keyboard: qKeys[key].keyboard
+        })
+    };
     d.resolve({
         txt: CHOOSE_LESSON_TXT,
         keyboard: SUB_KEYBOARD,
         inline_txt: WAITING_FOR_YOUR_CHOOSE_TXT,
-        inline_keyboard: SUB_LESSON_INLINE_KEYBOARD
+        inline_keyboard: inlineKeyboard
+    });
+}
+
+function querySubLesson(msg, subKeys, d) {
+    var M_TAG = '.querySubLesson';
+    var lessonId = subKeys[2];
+    subUser(msg.from.id, lessonId).then(()=> {
+        d.resolve({
+            txt: SUCCESS_SUB_TXT,
+            keyboard: MAIN_KEYBOARD
+        });
+    }).catch((reason)=> {
+        var txt = FAIL_SUB_TXT;
+        if (reason.code && SUB_FAIL_CODE[reason.code]) {
+            txt += SUB_FAIL_CODE[reason.code].txt;
+        } else {
+            console.error(TAG + M_TAG, 'reason:', reason);
+            txt += SUB_FAIL_CODE[500].txt;
+        }
+        d.resolve({
+            txt: txt
+        });
+    });
+}
+
+function queryUnsubLesson(msg, subKeys, d) {
+    var M_TAG = '.queryUnsubLesson';
+    var subLessonId = subKeys[2];
+    unsubUser(msg.from.id, subLessonId).then(()=> {
+        d.resolve({
+            txt: SUCCESS_UNSUB_TXT,
+            keyboard: MAIN_KEYBOARD
+        });
+    }).catch((reason)=> {
+        var txt = FAIL_SUB_TXT;
+        if (reason.code && SUB_FAIL_CODE[reason.code]) {
+            txt += SUB_FAIL_CODE[reason.code].txt;
+        } else {
+            console.error(TAG + M_TAG, 'reason:', reason);
+            txt += SUB_FAIL_CODE[500].txt;
+        }
+        d.resolve({
+            txt: txt
+        });
+    });
+}
+
+function queryFullSubLList(msg, subKeys, d) {
+    var M_TAG = '.queryFullSubLList';
+    var lessonId = subKeys[2];
+    var lesson = model.getLesson(lessonId);
+    if (!lesson) {
+        d.resolve({
+            txt: FAIL_SUB_TXT + SUB_FAIL_CODE[401].txt
+        });
+    } else {
+        model.getSubUsersByLessonId(lessonId).then((users)=> {
+            var minute = lesson.minute;
+            if (minute == '0') {
+                minute = '00';
+            }
+            var label = DAY_LABEL[lesson.day] + ': ' + lesson.label + ' ' + lesson.hour + ':' + minute;
+            var txt = SUB_TXT + label + '\n';
+            for (var i = 0; i < users.length; i++) {
+                var user = users[i];
+                txt += user.firstName + ' ' + user.lastName + '\n';
+            }
+            d.resolve({
+                txt: txt,
+                keyboard: defaultKeyboard(msg)
+            });
+        }).catch((reason)=> {
+            var txt = FAIL_SUB_TXT;
+            if (reason.code && SUB_FAIL_CODE[reason.code]) {
+                txt += SUB_FAIL_CODE[reason.code].txt;
+            } else {
+                console.error(TAG + M_TAG, 'reason:', reason);
+                txt += SUB_FAIL_CODE[500].txt;
+            }
+            d.resolve({
+                txt: txt
+            });
+        });
+    }
+}
+
+function subUser(chatId, lessonId) {
+    var M_TAG = 'subUser';
+    var d = Q.defer();
+    model.subUser(chatId, lessonId).then(()=> {
+        d.resolve(true);
+    }).catch((reason)=> {
+        if (!reason.code) {
+            console.warn(TAG + M_TAG, 'reason:', reason);
+            d.resolve({code: 500});
+        } else {
+            d.resolve({code: reason.code});
+        }
     });
     return d.promise;
 }
-function qSub01(key, msg) {
+
+function unsubUser(chatId, lessonId) {
+    var M_TAG = 'unsubUser';
     var d = Q.defer();
-    d.resolve({
-        txt: SUCCESS_SUB_TXT,
-        keyboard: MAIN_KEYBOARD
+    model.unsubUser(chatId, lessonId).then(()=> {
+        d.resolve(true);
+    }).catch((reason)=> {
+        if (!reason.code) {
+            console.warn(TAG + M_TAG, 'reason:', reason);
+            d.resolve({code: 500});
+        } else {
+            d.resolve({code: reason.code});
+        }
     });
     return d.promise;
 }

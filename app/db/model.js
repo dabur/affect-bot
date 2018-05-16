@@ -19,6 +19,13 @@ var singleton = function singleton() {
     this.isAdmin = isAdmin;
     this.addUser = addUser;
     this.getUser = getUser;
+    this.getLesson = getLesson;
+    this.subUser = subUser;
+    this.unsubUser = unsubUser;
+    this.getLessons = getLessons;
+    this.getLessonsByChatId = getLessonsByChatId;
+    this.getSubLessons = getSubLessons;
+    this.getSubUsersByLessonId = getSubUsersByLessonId;
 
     function init() {
         return sheet.init().then(function () {
@@ -34,12 +41,104 @@ var singleton = function singleton() {
         return !!admins[chatId];
     }
 
+    function addUser(obj) {
+        return users.add(obj);
+    }
+
+    function getUser(id) {
+        return users.get(id);
+    }
+
+    function getLesson(id) {
+        return lessons.getById(id);
+    }
+
+    function subUser(chatId, lessonId) {
+        var d = Q.defer();
+        var user = users.get(chatId);
+        if (!user) {
+            d.reject(400);
+        } else {
+            var lesson = lessons.getById(lessonId);
+            if (!lesson) {
+                d.reject(401);
+            } else {
+                presence.add(chatId, lessonId, true);
+                d.resolve(true);
+            }
+        }
+        return d.promise;
+    }
+
+    function unsubUser(chatId, lessonId) {
+        var d = Q.defer();
+        var user = users.get(chatId);
+        if (!user) {
+            d.reject(400);
+        } else {
+            var lesson = lessons.getById(lessonId);
+            if (!lesson) {
+                d.reject(401);
+            } else {
+                presence.remove(chatId, lessonId, true);
+                d.resolve(true);
+            }
+        }
+        return d.promise;
+    }
+
+    function getLessons() {
+        return lessons.getAll();
+    }
+
+    function getLessonsByChatId(chatId) {
+        var d = Q.defer();
+        var user = users.get(chatId);
+        if (!user) {
+            d.reject(400);
+        } else {
+            var userPresence = presence.getByChatId(chatId);
+            var ans = [];
+            for (var i = 0; i < userPresence.arr.length; i++) {
+                var lessonId = userPresence.arr[i].lessonId;
+                ans.push(lessons.getById(lessonId));
+            }
+            d.resolve(ans);
+        }
+        return d.promise;
+    }
+
+    function getSubLessons() {
+        var d = Q.defer();
+        var subLessons = presence.getAll();
+        var ans = [];
+        for (var lessonId in subLessons) {
+            if (subLessons.hasOwnProperty(lessonId)) {
+                var lesson = lessons.getById(lessonId);
+                lesson.count = subLessons[lessonId].arr.length;
+                ans.push(lesson);
+            }
+        }
+        d.resolve(ans);
+        return d.promise;
+    }
+
+    function getSubUsersByLessonId(lessonId) {
+        var d = Q.defer();
+        var byLessonId = presence.getByLessonId(lessonId);
+        var ans = [];
+        for (var i = 0; i < byLessonId.arr.length; i++) {
+            ans.push(users.get(byLessonId.arr[i].chatId));
+        }
+        d.resolve(ans);
+        return d.promise;
+    }
+
     //------------------------------------------------------------------------------------------------------// Public //
 
     this.reload = reload;
     this.getAllUsers = getAllUsers;
     this.getTodayClosestLessons = getTodayClosestLessons;
-    this.subscribeUserForToday = subscribeUserForToday;
     this.unsubscribeUserFromToday = unsubscribeUserFromToday;
     this.getSubscribeLessonsForToday = getSubscribeLessonsForToday;
     this.getSubscribersForToday = getSubscribersForToday;
@@ -52,92 +151,8 @@ var singleton = function singleton() {
     this.isSubscribedUserForToday = isSubscribedUserForToday;
     this.isTodayLessonFull = isTodayLessonFull;
 
-    function addUser(obj) {
-        return users.add(obj);
-    }
-
-    function getUser(id) {
-        return users.get(id);
-    }
-
     function getAllUsers() {
         return users.getAll();
-    }
-
-    function subscribeUserForToday(msgId, label, h, m) {
-        var M_TAG = '.subscribeUserForToday';
-        var d = Q.defer();
-        var lessons = schedule.getScheduler();
-        var day = new Date().getDay();
-        if (!lessons[day]) {
-            d.reject({msg: 'שיעור מבוקש להיום לא קיים במערכת'});
-        } else {
-            var dayLessons = lessons[day];
-            if (!dayLessons[h]) {
-                d.reject({msg: 'שיעור מבוקש להיום לא קיים במערכת'});
-            } else {
-                var hourLessons = dayLessons[h];
-                if (!hourLessons[m]) {
-                    d.reject({msg: 'שיעור מבוקש להיום לא קיים במערכת'});
-                } else {
-                    var lesson = hourLessons[m];
-                    if (label != lesson.label) {
-                        d.reject({msg: 'שיעור מבוקש להיום לא קיים במערכת'});
-                    } else {
-                        var nowDate = new Date();
-                        var lessonDate = new Date(nowDate.getTime());
-                        lessonDate.setHours(parseInt(lesson.hour), parseInt(lesson.minute), 0, 0);
-                        if (nowDate.getTime() < (lessonDate.getTime() + (lesson.duration * 60000))) {
-                            var user = users.get(msgId);
-                            var subscribedLesson = presence.getSubscribedUserForToday(user);
-                            if (subscribedLesson) {
-                                var subscribedDate = new Date(nowDate.getTime());
-                                subscribedDate.setHours(parseInt(lesson.hour), parseInt(lesson.minute), 0, 0);
-                                if (nowDate.getTime() < (subscribedDate.getTime() + (lesson.duration * 60000))) {
-                                    presence.unsubscribeUserForToday(user, subscribedLesson).then(function () {
-                                        return presence.subscribeUserForToday(user, lesson)
-                                    }).then(function () {
-                                        d.resolve('ההרשמה עברה בהצלחה!');
-                                    }).catch(function (err) {
-                                        console.error(TAG + M_TAG, err);
-                                        presence.subscribeUserForToday(user, subscribedLesson).then(function () {
-                                            if (err && err.text) {
-                                                d.reject({text: err.text});
-                                            } else {
-                                                d.reject({text: 'בעיית רישום'});
-                                            }
-                                        }).catch(function (reason) {
-                                            console.error(TAG + M_TAG, 'reason:', reason);
-                                            if (err && err.text) {
-                                                d.reject({text: err.text});
-                                            } else {
-                                                d.reject({text: 'בעיית רישום'});
-                                            }
-                                        });
-                                    });
-                                } else {
-                                    d.reject({text: 'ההרשמה נכשלה כי כבר היית רשומה היום'});
-                                }
-                            } else {
-                                presence.subscribeUserForToday(user, lesson).then(function () {
-                                    d.resolve('ההרשמה עברה בהצלחה!');
-                                }).catch(function (err) {
-                                    if (err && err.text) {
-                                        d.reject({text: err.text});
-                                    } else {
-                                        console.error(TAG + M_TAG, err);
-                                        d.reject({text: 'בעיית רישום'});
-                                    }
-                                });
-                            }
-                        } else {
-                            d.reject({text: 'ההרשמה נכשלה כי השיעור כבר עבר'});
-                        }
-                    }
-                }
-            }
-        }
-        return d.promise;
     }
 
     function subscribeUserForNextDay(msgId, label, h, m) {
