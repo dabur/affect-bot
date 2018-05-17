@@ -15,9 +15,13 @@ var SUB_TXT = 'תבחרי יום רצוי להרשמה';
 var QUERY_SUB_TXT = 'תבחרי שיעור רצוי להרשמה';
 var SUCCESS_SUB_TXT = 'הרישום עבר בהצלחה!';
 var SUCCESS_UNSUB_TXT = 'הרישום הוסר בהצלחה!';
-var SUB_LIST_TXT = 'לפירוט רשומות, לחצי על השיעור';
-var MYSUB_TXT = 'שיעורים להם את רשומה. (להסרה:לחצי על השיעור)';
+var SUB_LIST_TXT = 'לרשימה המלאה של הרשומות, לחצי על השיעור';
+var MYSUB_TXT = 'רשימת השיעורים להם את רשומה';
 var FAIL_SUB_TXT = 'הפעולה נכשלה. הסיבה:';
+var YOU_R_NOT_SUB_YET_TXT = 'אינך רשומה עדיין';
+var TO_UNSUB_PRESS_TXT = '(להסרה:לחצי על השיעור)';
+var NO_SUB_YET_TXT = 'עדיין אין רשומות';
+var FULL_SUB_LIST_TXT = 'רשימה מלאה של הרשומות ל';
 
 //button labels
 var MY_SUB_LABEL = 'השיעורים שאני רשומה';
@@ -149,6 +153,7 @@ function mySub(msg) {
     var d = Q.defer();
     model.getLessonsByChatId(msg.from.id).then((lessons)=> {
         var keyboard = [];
+        var txt = MYSUB_TXT;
         for (var i = 0; i < lessons.length; i++) {
             var lesson = lessons[i];
             var unsubLessonKey = 'unsub::' + lesson.day + '::' + lesson.id;
@@ -159,13 +164,18 @@ function mySub(msg) {
                 }]);
             }
         }
+        if (keyboard.length > 0) {
+            txt += '\n' + TO_UNSUB_PRESS_TXT;
+        } else {
+            txt += '\n' + YOU_R_NOT_SUB_YET_TXT;
+        }
         var inlineKeyboard = {
             reply_markup: JSON.stringify({
                 inline_keyboard: keyboard
             })
         };
         d.resolve({
-            inline_txt: MYSUB_TXT,
+            inline_txt: txt,
             inline_keyboard: inlineKeyboard
         });
     }).catch((reason)=> {
@@ -204,11 +214,16 @@ function subList(msg) {
     var d = Q.defer();
     model.getSubLessons().then((lessons)=> {
         var keyboard = [];
+        var txt = SUB_LIST_TXT;
         for (var i = 0; i < lessons.length; i++) {
             var lesson = lessons[i];
             if (lesson.count > 0) {
                 var key = 'fullsublist::' + lesson.day + '::' + lesson.id;
-                var label = DAY_LABEL[lesson.day] + ': ' + lesson.label;
+                var minute = lesson.minute;
+                if (minute == '0') {
+                    minute = '00';
+                }
+                var label = DAY_LABEL[lesson.day] + ': ' + lesson.label + ' ' + lesson.hour + ':' + minute;
                 if (qKeys[key]) {
                     keyboard.push([{
                         text: label + ' רשומות:' + lesson.count,
@@ -217,13 +232,16 @@ function subList(msg) {
                 }
             }
         }
+        if (keyboard.length < 1) {
+            txt += NO_SUB_YET_TXT;
+        }
         var inlineKeyboard = {
             reply_markup: JSON.stringify({
                 inline_keyboard: keyboard
             })
         };
         d.resolve({
-            inline_txt: SUB_LIST_TXT,
+            inline_txt: txt,
             inline_keyboard: inlineKeyboard
         });
     }).catch((reason)=> {
@@ -424,7 +442,7 @@ function queryFullSubLList(msg, subKeys, d) {
                 minute = '00';
             }
             var label = DAY_LABEL[lesson.day] + ': ' + lesson.label + ' ' + lesson.hour + ':' + minute;
-            var txt = SUB_TXT + label + '\n';
+            var txt = FULL_SUB_LIST_TXT + label + '\n';
             for (var i = 0; i < users.length; i++) {
                 var user = users[i];
                 txt += user.firstName + ' ' + user.lastName + '\n';
