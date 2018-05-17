@@ -21,7 +21,7 @@ var FAIL_SUB_TXT = 'הפעולה נכשלה. הסיבה:';
 var YOU_R_NOT_SUB_YET_TXT = 'אינך רשומה עדיין';
 var TO_UNSUB_PRESS_TXT = '(להסרה:לחצי על השיעור)';
 var NO_SUB_YET_TXT = 'עדיין אין רשומות';
-var FULL_SUB_LIST_TXT = 'רשימה מלאה של הרשומות ל';
+var FULL_SUB_LIST_TXT = 'רשימה מלאה של הרשומות ליום ';
 
 //button labels
 var MY_SUB_LABEL = 'השיעורים שאני רשומה';
