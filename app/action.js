@@ -325,7 +325,7 @@ function queryFunction(key, msg) {
     var action = subKeys[0];
     if (action == 'sub') {
         if (subKeys.length == 2) {
-            querySub(key, d);
+            querySub(msg, key, d);
         } else if (subKeys.length == 3) {
             querySubLesson(msg, subKeys, d);
         } else {
@@ -361,7 +361,7 @@ function queryFunction(key, msg) {
     return d.promise;
 }
 
-function querySub(key, d) {
+function querySub(msg, key, d) {
     var inlineKeyboard = {
         reply_markup: JSON.stringify({
             inline_keyboard: qKeys[key].keyboard
