@@ -233,7 +233,7 @@ function subList(msg) {
             }
         }
         if (keyboard.length < 1) {
-            txt += NO_SUB_YET_TXT;
+            txt = NO_SUB_YET_TXT;
         }
         var inlineKeyboard = {
             reply_markup: JSON.stringify({
