@@ -99,9 +99,11 @@ var singleton = function singleton() {
         } else {
             var userPresence = presence.getByChatId(chatId);
             var ans = [];
-            for (var i = 0; i < userPresence.arr.length; i++) {
-                var lessonId = userPresence.arr[i].lessonId;
-                ans.push(lessons.getById(lessonId));
+            if (userPresence) {
+                for (var i = 0; i < userPresence.arr.length; i++) {
+                    var lessonId = userPresence.arr[i].lessonId;
+                    ans.push(lessons.getById(lessonId));
+                }
             }
             d.resolve(ans);
         }
@@ -127,8 +129,10 @@ var singleton = function singleton() {
         var d = Q.defer();
         var byLessonId = presence.getByLessonId(lessonId);
         var ans = [];
-        for (var i = 0; i < byLessonId.arr.length; i++) {
-            ans.push(users.get(byLessonId.arr[i].chatId));
+        if (byLessonId) {
+            for (var i = 0; i < byLessonId.arr.length; i++) {
+                ans.push(users.get(byLessonId.arr[i].chatId));
+            }
         }
         d.resolve(ans);
         return d.promise;

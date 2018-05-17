@@ -10,15 +10,13 @@ var utils = require('./utils');
 //text messages
 var DEFAULT_TXT = ['מה?', 'לא יודע איך לענות!', 'אולי דריה תוכל לעזור?'];
 var ADMIN_DEFAULT_TXT = 'תשאלי את ניק!';
-var WELCOME_TXT = 'היי ' + '%FIRST_NAME%' + '!\n' + 'ברוכה הבאה לקבוצת רישום לשיעורים של Affect';
-var WAITING_FOR_YOUR_CHOOSE_TXT = 'ממתין לבחירתך..';
-var CHOOSE_DAY_TXT = 'תבחרי יום רצוי להרשמה';
-var CHOOSE_LESSON_TXT = 'תבחרי שיעור רצוי להרשמה';
+var WELCOME_TXT = 'הי ' + '%FIRST_NAME%' + '!\n' + 'ברוכה הבאה לקבוצת רישום לשיעורים של Affect';
+var SUB_TXT = 'תבחרי יום רצוי להרשמה';
+var QUERY_SUB_TXT = 'תבחרי שיעור רצוי להרשמה';
 var SUCCESS_SUB_TXT = 'הרישום עבר בהצלחה!';
 var SUCCESS_UNSUB_TXT = 'הרישום הוסר בהצלחה!';
-var LESSONS_YOU_SUB_TXT = 'שיעורים להם את רשומה';
-var UNSUB_CHOOSE_TXT = 'להסרה, תלחצי על השיעור';
-var SUB_TXT = 'רשומות ל';
+var SUB_LIST_TXT = 'לפירוט רשומות, לחצי על השיעור';
+var MYSUB_TXT = 'שיעורים להם את רשומה. (להסרה:לחצי על השיעור)';
 var FAIL_SUB_TXT = 'הפעולה נכשלה. הסיבה:';
 
 //button labels
@@ -167,9 +165,7 @@ function mySub(msg) {
             })
         };
         d.resolve({
-            txt: LESSONS_YOU_SUB_TXT,
-            keyboard: defaultKeyboard(msg),
-            inline_txt: UNSUB_CHOOSE_TXT,
+            inline_txt: MYSUB_TXT,
             inline_keyboard: inlineKeyboard
         });
     }).catch((reason)=> {
@@ -197,9 +193,7 @@ function sub(msg) {
         })
     };
     d.resolve({
-        txt: CHOOSE_DAY_TXT,
-        keyboard: defaultKeyboard(msg),
-        inline_txt: WAITING_FOR_YOUR_CHOOSE_TXT,
+        inline_txt: SUB_TXT,
         inline_keyboard: inlineKeyboard
     });
     return d.promise;
@@ -229,9 +223,7 @@ function subList(msg) {
             })
         };
         d.resolve({
-            txt: LESSONS_YOU_SUB_TXT,
-            keyboard: defaultKeyboard(msg),
-            inline_txt: UNSUB_CHOOSE_TXT,
+            inline_txt: SUB_LIST_TXT,
             inline_keyboard: inlineKeyboard
         });
     }).catch((reason)=> {
@@ -368,9 +360,7 @@ function querySub(msg, key, d) {
         })
     };
     d.resolve({
-        txt: CHOOSE_LESSON_TXT,
-        keyboard: defaultKeyboard(msg),
-        inline_txt: WAITING_FOR_YOUR_CHOOSE_TXT,
+        inline_txt: QUERY_SUB_TXT,
         inline_keyboard: inlineKeyboard
     });
 }
