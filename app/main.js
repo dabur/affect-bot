@@ -6,6 +6,8 @@ var singleton = function singleton() {
     var Q = require('q');
     var tel = require('./handler/telegram');
     var action = require('./action');
+    var reloadTimerId;
+    var notificationTimers = [];
 
     // Public //------------------------------------------------------------------------------------------------------//
     this.run = run;
@@ -15,6 +17,7 @@ var singleton = function singleton() {
         var d = Q.defer();
         action.init().then(()=> {
             initListeners();
+            initReload();
             d.resolve(true);
         }).catch(d.reject);
         return d.promise;
@@ -27,6 +30,57 @@ var singleton = function singleton() {
     }
 
     //------------------------------------------------------------------------------------------------------// Public //
+
+    function initReload() {
+        var M_TAG = 'initReload';
+        if (reloadTimerId) {
+            clearTimeout(reloadTimerId);
+        }
+        var nowDate = new Date();
+        var nowDay = nowDate.getDay();
+        var reloadDate = new Date();
+        reloadDate.setHours(0, 0, 0, 0);
+        reloadDate.setDate(reloadDate.getDate() + (7 - nowDay));
+        var time = reloadDate.getTime() - nowDate.getTime();
+        reloadTimerId = setTimeout(()=> {
+            action.init().then(()=> {
+                initReload();
+                var reloadDate = new Date();
+                console.info(TAG + M_TAG, 'complete date:', reloadDate);
+            }).catch((reason)=> {
+                console.error(TAG + M_TAG, 'failed reason:', reason);
+            });
+        }, time);
+        resetNotificationTimers();
+    }
+
+    function resetNotificationTimers() {
+        for (var i = 0; i < notificationTimers.length; i++) {
+            var timer = notificationTimers[i];
+            clearTimeout(timer.id);
+        }
+        notificationTimers = [];
+        var notifications = action.getNotifications();
+        for (var j = 0; j < notifications.length; j++) {
+            var notification = notifications[j];
+            addNotificationTimer(notification);
+        }
+    }
+
+    function addNotificationTimer(notification) {
+        var timerId = setTimeout(()=> {
+            var chatIds = action.getNotificationChatIds(notification);
+            if (chatIds.length > 0) {
+                var txt = notification.txt;
+                for (var i = 0; i < chatIds.length; i++) {
+                    var chatId = chatIds[i];
+                    tel.sendMessage(chatId, txt);
+                }
+            }
+        }, notification.time);
+        var timer = {id: timerId, notification};
+        notificationTimers.push(timer);
+    }
 
     function initListeners() {
         tel.onMessage(onMessage);

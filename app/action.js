@@ -10,7 +10,10 @@ var utils = require('./utils');
 //text messages
 var DEFAULT_TXT = ['מה?', 'לא יודע איך לענות!', 'אולי דריה תוכל לעזור?'];
 var ADMIN_DEFAULT_TXT = 'תשאלי את ניק!';
+var ADMIN_CREATE_FIRST_USER_TXT = 'קודם תייצרי לקוחה';
+var ADMIN_SHOOSE_USER_TXT = 'תבחרי לקוחה לרישום';
 var WELCOME_TXT = 'הי ' + '%FIRST_NAME%' + '!\n' + 'ברוכה הבאה לקבוצת רישום לשיעורים של Affect';
+var NOTIFICATION_TXT = 'עוד שעה מתקיים שיעור' + '\n%LABEL%\n' + 'רוצה להצטרף? יש מקום פנוי!';
 var SUB_TXT = 'תבחרי יום רצוי להרשמה';
 var QUERY_SUB_TXT = 'תבחרי שיעור רצוי להרשמה';
 var SUCCESS_SUB_TXT = 'הרישום עבר בהצלחה!';
@@ -27,8 +30,6 @@ var NO_LESSONS_TODAY_TXT = 'אין שיעורים היום';
 var TEMPLATE_USER_CREATION_TXT = 'תכתבי חדש:שם פרטי רווח שם משפחה \n דוגמה: "חדש:דריה וסיוקוב"';
 var USER_CREATION_SUCCESS_TXT = 'לקוח נוצר בהצלחה';
 var USER_CREATION_FAIL_TXT = 'יצירת לקוח נכשלה';
-var ADMIN_CREATE_FIRST_USER_TXT = 'קודם תייצרי לקוחה';
-var ADMIN_SHOOSE_USER_TXT = 'תבחרי לקוחה לרישום';
 
 //button labels
 var MY_SUB_LABEL = 'השיעורים שאני רשומה';
@@ -105,7 +106,9 @@ module.exports = {
     isAutoMessage: isAutoMessage,
     message: message,
     defaultTxt: defaultTxt,
-    defaultKeyboard: defaultKeyboard
+    defaultKeyboard: defaultKeyboard,
+    getNotifications: getNotifications,
+    getNotificationChatIds: getNotificationChatIds
 };
 
 function init() {
@@ -153,7 +156,88 @@ function defaultTxt(msg) {
 function defaultKeyboard(msg) {
     return model.isAdmin(msg.from.id) ? ADMIN_MAIN_KEYBOARD : MAIN_KEYBOARD;
 }
+
+function getNotifications() {
+    var notifications = [];
+    var lessons = getRelevantLessons(model.getLessons());
+    for (var i = 0; i < lessons.length; i++) {
+        var lesson = lessons[i];
+        var time = getNotificationsTime(lesson);
+        if (time) {
+            var txt = utils.replaceAll(NOTIFICATION_TXT, '%LABEL%', lesson.label);
+            var notification = {
+                time: time,
+                txt: txt,
+                lessonId: lesson.id
+            };
+            notifications.push(notification);
+        }
+    }
+    return notifications;
+}
+
+function getNotificationChatIds(notification) {
+    var chatIds = [];
+    var lesson = model.getLesson(notification.lessonId);
+    var subLesson = model.getSubLesson(notification.lessonId);
+    var users = model.getUsers();
+    if (!subLesson) {
+        for (var i = 0; i < users.length; i++) {
+            var user = users[i];
+            if (!user.chatId.startsWith('manual_') && !model.isAdmin(user.chatId)) {
+                var subUser = model.getSubUser(user.chatId);
+                if (!subUser) {
+                    chatIds.push(user.chatId);
+                } else {
+                    if (subUser.arr.length < model.getUserSubQuotaPerWeek() - 1) {
+                        chatIds.push(user.chatId);
+                    }
+                }
+            }
+        }
+    } else {
+        if (subLesson.arr.length < lesson.capacity) {
+            for (var j = 0; j < users.length; j++) {
+                var jUser = users[j];
+                if (!jUser.chatId.startsWith('manual_') && !model.isAdmin(jUser.chatId)) {
+                    if (!subLesson.obj.hasOwnProperty(jUser.chatId)) {
+                        var jSubUser = model.getSubUser(jUser.chatId);
+                        if (!jSubUser) {
+                            chatIds.push(jUser.chatId);
+                        } else {
+                            if (jSubUser.arr.length < model.getUserSubQuotaPerWeek() - 1) {
+                                chatIds.push(jUser.chatId);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return chatIds;
+}
 //----------------------------------------------------------------------------------------------------------// Public //
+
+function getNotificationsTime(lesson) {
+    var date = new Date();
+    var day = date.getDay();
+    if (lesson.day > day) {
+        var bNotificationDate = new Date();
+        bNotificationDate.setDate(bNotificationDate.getDate() + (lesson.day - day));
+        bNotificationDate.setHours(parseInt(lesson.hour) - 1, lesson.minute, 0, 0);
+        return bNotificationDate.getTime() - date.getTime();
+    } else if (lesson.day == day) {
+        var notificationDate = new Date();
+        var hour = parseInt(lesson.hour) - 1;
+        if (hour > 0) {
+            notificationDate.setHours(hour, lesson.minute, 0, 0);
+            if (notificationDate.getTime() > date.getTime()) {
+                return notificationDate.getTime() - date.getTime();
+            }
+        }
+    }
+    return 0;
+}
 
 // Message //---------------------------------------------------------------------------------------------------------//
 function msgStart(msg) {
