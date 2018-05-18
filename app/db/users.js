@@ -68,7 +68,8 @@ function getAll() {
     var arr = [];
     for (var chatId in users.byChatId) {
         if (users.byChatId.hasOwnProperty(chatId)) {
-            arr.push(users.byChatId[chatId]);
+            var user = users.byChatId[chatId];
+            arr.push(user);
         }
     }
     return arr;
