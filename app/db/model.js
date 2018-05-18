@@ -29,6 +29,7 @@ var singleton = function singleton() {
     this.getLessonsByChatId = getLessonsByChatId;
     this.getSubLessons = getSubLessons;
     this.getSubUsersByLessonId = getSubUsersByLessonId;
+    this.getManualUsers = getManualUsers;
 
     function init() {
         return sheet.init().then(function () {
@@ -192,6 +193,12 @@ var singleton = function singleton() {
             return false;
         }
         return !(byLessonId.arr.length < lesson.capacity);
+    }
+
+    function getManualUsers() {
+        return users.getAll().filter((user)=> {
+            return user.chatId.startsWith('manual_');
+        });
     }
 
     //------------------------------------------------------------------------------------------------------// Public //
