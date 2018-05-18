@@ -69,8 +69,19 @@ var singleton = function singleton() {
                 if (getLessonsByChatId(user.chatId).length >= USER_SUB_QUOTA_PER_WEEK) {
                     d.reject({code: 300});
                 } else {
-                    presence.add(chatId, lessonId, true);
-                    d.resolve(true);
+                    if (!isSubOpen(lesson)) {
+                        d.reject({code: 303});
+                    } else {
+                        if (isFull(lesson)) {
+                            d.reject({code: 301});
+                        } else {
+                            presence.add(chatId, lessonId, true).then(function () {
+                                d.resolve(true);
+                            }).catch(function () {
+                                d.reject({code: 500});
+                            });
+                        }
+                    }
                 }
             }
         }
@@ -87,8 +98,15 @@ var singleton = function singleton() {
             if (!lesson) {
                 d.reject({code: 401});
             } else {
-                presence.remove(chatId, lessonId, true);
-                d.resolve(true);
+                if (!isUnsubOpen(lesson)) {
+                    d.reject({code: 302});
+                } else {
+                    presence.remove(user.chatId, lesson.id, true).then(function () {
+                        d.resolve(true);
+                    }).catch(function () {
+                        d.reject({code: 500});
+                    });
+                }
             }
         }
         return d.promise;
@@ -136,6 +154,44 @@ var singleton = function singleton() {
 
     function getLessonsByDay(day) {
         return lessons.getByDay(day);
+    }
+
+    function isSubOpen(lesson) {
+        var date = new Date();
+        var day = date.getDay();
+        if (lesson.day > day) {
+            return true;
+        } else if (lesson.day == day) {
+            var lessonDate = new Date();
+            lessonDate.setHours(lesson.hour, lesson.minute);
+            if (lessonDate > date) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function isUnsubOpen(lesson) {
+        var date = new Date();
+        var day = date.getDay();
+        if (lesson.day > day) {
+            return true;
+        } else if (lesson.day == day) {
+            var lessonDate = new Date();
+            lessonDate.setHours(parseInt(lesson.hour) - 1, lesson.minute);
+            if (lessonDate > date) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function isFull(lesson) {
+        var byLessonId = presence.getByLessonId(lesson.id);
+        if (!byLessonId) {
+            return false;
+        }
+        return !(byLessonId.arr.length < lesson.capacity);
     }
 
     //------------------------------------------------------------------------------------------------------// Public //

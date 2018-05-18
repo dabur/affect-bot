@@ -27,6 +27,7 @@ function init(users, lessons) {
 }
 
 function add(chatId, lessonId, sync, date) {
+    var d = Q.defer();
     if (persistence.users.get(chatId) && persistence.lessons.getById(lessonId)) {
         if (!date) {
             date = moment(new Date()).format("YYYYMMDD").toString();
@@ -47,12 +48,22 @@ function add(chatId, lessonId, sync, date) {
             presence.byChatId[chatId].arr.push(data);
         }
         if (sync) {
-            update();
+            update().then(function () {
+                d.resolve(true);
+            }).catch(function (reason) {
+                d.reject(reason);
+            });
+        } else {
+            d.resolve(true);
         }
+    } else {
+        d.resolve(true);
     }
+    return d.promise;
 }
 
 function remove(chatId, lessonId, sync) {
+    var d = Q.defer();
     if (persistence.users.get(chatId) && persistence.lessons.getById(lessonId)) {
         var data = presence.byChatId[chatId].obj[lessonId];
         if (data) {
@@ -73,10 +84,21 @@ function remove(chatId, lessonId, sync) {
             }
             delete presence.byLessonId[lessonId].obj[chatId];
             if (sync) {
-                update();
+                update().then(function () {
+                    d.resolve(true);
+                }).catch(function (reason) {
+                    d.reject(reason);
+                });
+            } else {
+                d.resolve(true);
             }
+        } else {
+            d.resolve(true);
         }
+    } else {
+        d.resolve(true);
     }
+    return d.promise;
 }
 
 function getByLessonId(lessonId) {

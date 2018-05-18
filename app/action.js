@@ -38,7 +38,8 @@ var SUB_FAIL_CODE = {
     401: {txt: 'שיעור לא קיים במערכת'},
     300: {txt: 'לא ניתן להירשם ליותר משלוש שיעורים בשבוע'},
     301: {txt: 'השיעור מלאה'},
-    302: {txt: 'הסרת רשום מותרת עד שעה לפני תחילתו'}
+    302: {txt: 'הסרת רשום מותרת עד שעה לפני תחילת השיעור'},
+    303: {txt: 'לא ניתן להירשם לשיעור שהתחיל או עבר'}
 };
 
 var DAY_LABEL = {
@@ -210,29 +211,6 @@ function sub(msg) {
         inline_keyboard: inlineKeyboard
     });
     return d.promise;
-}
-
-function getRelevantDays(lessons) {
-    var date = new Date();
-    var day = date.getDay();
-    var days = {obj: {}, arr: []};
-    for (var i = 0; i < lessons.length; i++) {
-        var lesson = lessons[i];
-        if (!days.obj[lesson.day]) {
-            if (lesson.day > day) {
-                days.obj[lesson.day] = true;
-                days.arr.push(lesson.day);
-            } else if (lesson.day == day) {
-                var lessonDate = new Date();
-                lessonDate.setHours(lesson.hour, lesson.minute);
-                if (lessonDate > date) {
-                    days.obj[lesson.day] = true;
-                    days.arr.push(lesson.day);
-                }
-            }
-        }
-    }
-    return days.arr;
 }
 
 function subList(msg) {
@@ -477,6 +455,29 @@ function queryFullSubLList(msg, subKeys, d) {
             keyboard: defaultKeyboard(msg)
         });
     }
+}
+
+function getRelevantDays(lessons) {
+    var date = new Date();
+    var day = date.getDay();
+    var days = {obj: {}, arr: []};
+    for (var i = 0; i < lessons.length; i++) {
+        var lesson = lessons[i];
+        if (!days.obj[lesson.day]) {
+            if (lesson.day > day) {
+                days.obj[lesson.day] = true;
+                days.arr.push(lesson.day);
+            } else if (lesson.day == day) {
+                var lessonDate = new Date();
+                lessonDate.setHours(lesson.hour, lesson.minute);
+                if (lessonDate > date) {
+                    days.obj[lesson.day] = true;
+                    days.arr.push(lesson.day);
+                }
+            }
+        }
+    }
+    return days.arr;
 }
 
 function getRelevantLessons(lessons) {
