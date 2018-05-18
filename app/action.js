@@ -685,9 +685,12 @@ function queryFullSubLList(msg, subKeys, d) {
 }
 
 function getRelevantDays(lessons) {
+    var days = {obj: {}, arr: []};
+    if (!lessons) {
+        return days;
+    }
     var date = new Date();
     var day = date.getDay();
-    var days = {obj: {}, arr: []};
     for (var i = 0; i < lessons.length; i++) {
         var lesson = lessons[i];
         if (!days.obj[lesson.day]) {
@@ -708,6 +711,9 @@ function getRelevantDays(lessons) {
 }
 
 function getRelevantLessons(lessons) {
+    if (!lessons) {
+        return [];
+    }
     var date = new Date();
     var day = date.getDay();
     return lessons.filter(function (lesson) {
