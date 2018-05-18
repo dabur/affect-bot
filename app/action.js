@@ -24,13 +24,16 @@ var NO_SUB_YET_TXT = 'עדיין אין רשומות';
 var FULL_SUB_LIST_TXT = 'רשימה מלאה של הרשומות ליום ';
 var NO_LESSONS_THIS_WEEK_TXT = 'אין שיעורים השבוע';
 var NO_LESSONS_TODAY_TXT = 'אין שיעורים היום';
+var TEMPLATE_USER_CREATION_TXT = 'תכתבי חדש:שם פרטי רווח שם משפחה \n דוגמה: "חדש:דריה וסיוקוב"';
+var USER_CREATION_SUCCESS_TXT = 'לקוח נוצר בהצלחה';
+var USER_CREATION_FAIL_TXT = 'יצירת לקוח נכשלה';
 
 //button labels
 var MY_SUB_LABEL = 'השיעורים שאני רשומה';
 var SUB_LABEL = 'הרשמה לשיעור';
 var SUB_LIST_LABEL = 'רשימת הרשומות';
-var ADMIN_CREATE_USER_LABEL = 'צור לקוחה חדש';
-var ADMIN_SUB_USER_LABEL = 'לרשום לקוחה';
+var ADMIN_CREATE_USER_LABEL = 'צור לקוחה חדשה';
+var ADMIN_SUB_USER_LABEL = 'לרשום לקוחה לשיעור';
 
 var SUB_FAIL_CODE = {
     500: {txt: 'שגיאת מערכת'},
@@ -118,10 +121,16 @@ function query(key, msg) {
 }
 
 function isAutoMessage(txt) {
+    if (txt.startsWith('חדש:')) {
+        return true;
+    }
     return messages.hasOwnProperty(txt);
 }
 
 function message(txt, msg) {
+    if (txt.startsWith('חדש:')) {
+        return messages[ADMIN_CREATE_USER_LABEL](msg);
+    }
     return messages[txt](msg);
 }
 
@@ -252,11 +261,50 @@ function subList(msg) {
 }
 
 function adminCreateUser(msg) {
+    var M_TAG = '.adminCreateUser';
     var d = Q.defer();
-    d.resolve({
-        txt: msg.text,
-        keyboard: defaultKeyboard(msg)
-    });
+    if (!model.isAdmin(msg.from.id)) {
+        d.resolve({
+            txt: defaultTxt(msg),
+            keyboard: defaultKeyboard(msg)
+        });
+    } else {
+        if (!msg.text.startsWith('חדש:')) {
+            d.resolve({
+                txt: TEMPLATE_USER_CREATION_TXT
+            });
+        } else {
+            try {
+                var name = msg.text.split(':')[1].split(' ');
+                var fName = name[0];
+                var lName = name[1];
+                if (!fName || !lName) {
+                    d.resolve({
+                        txt: USER_CREATION_FAIL_TXT + '\n' + TEMPLATE_USER_CREATION_TXT
+                    });
+                } else {
+                    model.addUser({
+                        chatId: "manual_" + utils.uuid(),
+                        firstName: fName,
+                        lastName: lName
+                    }).then(function () {
+                        d.resolve({
+                            txt: USER_CREATION_SUCCESS_TXT + ' ( ' + fName + ' ' + lName + ' )'
+                        });
+                    }).catch(function (reason) {
+                        console.error(TAG + M_TAG, 'msg.text:', msg.text, 'reason:', reason);
+                        d.resolve({
+                            txt: defaultTxt(msg)
+                        });
+                    });
+                }
+            } catch (err) {
+                d.resolve({
+                    txt: USER_CREATION_FAIL_TXT + '\n' + TEMPLATE_USER_CREATION_TXT
+                });
+            }
+        }
+    }
     return d.promise;
 }
 
