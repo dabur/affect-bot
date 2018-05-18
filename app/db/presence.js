@@ -38,7 +38,6 @@ function add(chatId, lessonId, sync, date) {
         if (!presence.byLessonId[lessonId].obj[chatId]) {
             presence.byLessonId[lessonId].obj[chatId] = data;
             presence.byLessonId[lessonId].arr.push(data);
-            presence.byLessonId[lessonId].obj[chatId].li = presence.byLessonId[lessonId].arr.length - 1;
         }
         if (!presence.byChatId[chatId]) {
             presence.byChatId[chatId] = {obj: {}, arr: []};
@@ -46,7 +45,6 @@ function add(chatId, lessonId, sync, date) {
         if (!presence.byChatId[chatId].obj[lessonId]) {
             presence.byChatId[chatId].obj[lessonId] = data;
             presence.byChatId[chatId].arr.push(data);
-            presence.byChatId[chatId].obj[lessonId].ci = presence.byChatId[chatId].arr.length - 1;
         }
         if (sync) {
             update();
@@ -58,9 +56,21 @@ function remove(chatId, lessonId, sync) {
     if (persistence.users.get(chatId) && persistence.lessons.getById(lessonId)) {
         var data = presence.byChatId[chatId].obj[lessonId];
         if (data) {
-            presence.byChatId[chatId].arr.splice(data.ci, 1);
+            for (var ci = 0; ci < presence.byChatId[chatId].arr.length; ci++) {
+                var val1 = presence.byChatId[chatId].arr[ci];
+                if (val1.chatId == data.chatId && val1.lessonId == data.lessonId) {
+                    presence.byChatId[chatId].arr.splice(ci, 1);
+                    break;
+                }
+            }
             delete presence.byChatId[chatId].obj[lessonId];
-            presence.byLessonId[lessonId].arr.splice(data.li, 1);
+            for (var li = 0; li < presence.byLessonId[lessonId].arr.length; li++) {
+                var val2 = presence.byLessonId[lessonId].arr[li];
+                if (val2.chatId == data.chatId && val2.lessonId == data.lessonId) {
+                    presence.byLessonId[lessonId].arr.splice(li, 1);
+                    break;
+                }
+            }
             delete presence.byLessonId[lessonId].obj[chatId];
             if (sync) {
                 update();

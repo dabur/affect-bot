@@ -14,6 +14,8 @@ var singleton = function singleton() {
     var todayLessons;
     var nextDayLessons;
 
+    var USER_SUB_QUOTA_PER_WEEK = 3;
+
     // Public //------------------------------------------------------------------------------------------------------//
     this.init = init;
     this.isAdmin = isAdmin;
@@ -23,6 +25,7 @@ var singleton = function singleton() {
     this.subUser = subUser;
     this.unsubUser = unsubUser;
     this.getLessons = getLessons;
+    this.getLessonsByDay = getLessonsByDay;
     this.getLessonsByChatId = getLessonsByChatId;
     this.getSubLessons = getSubLessons;
     this.getSubUsersByLessonId = getSubUsersByLessonId;
@@ -57,14 +60,18 @@ var singleton = function singleton() {
         var d = Q.defer();
         var user = users.get(chatId);
         if (!user) {
-            d.reject(400);
+            d.reject({code: 400});
         } else {
             var lesson = lessons.getById(lessonId);
             if (!lesson) {
-                d.reject(401);
+                d.reject({code: 401});
             } else {
-                presence.add(chatId, lessonId, true);
-                d.resolve(true);
+                if (getLessonsByChatId(user.chatId).length >= USER_SUB_QUOTA_PER_WEEK) {
+                    d.reject({code: 300});
+                } else {
+                    presence.add(chatId, lessonId, true);
+                    d.resolve(true);
+                }
             }
         }
         return d.promise;
@@ -74,11 +81,11 @@ var singleton = function singleton() {
         var d = Q.defer();
         var user = users.get(chatId);
         if (!user) {
-            d.reject(400);
+            d.reject({code: 400});
         } else {
             var lesson = lessons.getById(lessonId);
             if (!lesson) {
-                d.reject(401);
+                d.reject({code: 401});
             } else {
                 presence.remove(chatId, lessonId, true);
                 d.resolve(true);
@@ -92,26 +99,18 @@ var singleton = function singleton() {
     }
 
     function getLessonsByChatId(chatId) {
-        var d = Q.defer();
-        var user = users.get(chatId);
-        if (!user) {
-            d.reject(400);
-        } else {
-            var userPresence = presence.getByChatId(chatId);
-            var ans = [];
-            if (userPresence) {
-                for (var i = 0; i < userPresence.arr.length; i++) {
-                    var lessonId = userPresence.arr[i].lessonId;
-                    ans.push(lessons.getById(lessonId));
-                }
+        var userPresence = presence.getByChatId(chatId);
+        var ans = [];
+        if (userPresence) {
+            for (var i = 0; i < userPresence.arr.length; i++) {
+                var lessonId = userPresence.arr[i].lessonId;
+                ans.push(lessons.getById(lessonId));
             }
-            d.resolve(ans);
         }
-        return d.promise;
+        return ans;
     }
 
     function getSubLessons() {
-        var d = Q.defer();
         var subLessons = presence.getAll();
         var ans = [];
         for (var lessonId in subLessons) {
@@ -121,12 +120,10 @@ var singleton = function singleton() {
                 ans.push(lesson);
             }
         }
-        d.resolve(ans);
-        return d.promise;
+        return ans;
     }
 
     function getSubUsersByLessonId(lessonId) {
-        var d = Q.defer();
         var byLessonId = presence.getByLessonId(lessonId);
         var ans = [];
         if (byLessonId) {
@@ -134,8 +131,11 @@ var singleton = function singleton() {
                 ans.push(users.get(byLessonId.arr[i].chatId));
             }
         }
-        d.resolve(ans);
-        return d.promise;
+        return ans;
+    }
+
+    function getLessonsByDay(day) {
+        return lessons.getByDay(day);
     }
 
     //------------------------------------------------------------------------------------------------------// Public //

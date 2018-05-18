@@ -53,8 +53,8 @@ var singleton = function singleton() {
             var txt = msg.text;
             if (action.isAutoMessage(txt)) {
                 action.message(txt, msg).then((result)=> {
-                    if (result.inline_keyboard && result.inline_txt) {
-                        if (result.keyboard && result.txt) {
+                    if (result.inline_txt) {
+                        if (result.txt) {
                             tel.sendMessage(msg.from.id, result.txt, result.keyboard).then(()=> {
                                 tel.sendMessage(msg.from.id, result.inline_txt, result.inline_keyboard);
                             });
@@ -62,7 +62,7 @@ var singleton = function singleton() {
                             tel.sendMessage(msg.from.id, result.inline_txt, result.inline_keyboard);
                         }
                     } else {
-                        if (result.keyboard && result.txt) {
+                        if (result.txt) {
                             tel.sendMessage(msg.from.id, result.txt, result.keyboard);
                         }
                     }
@@ -81,8 +81,8 @@ var singleton = function singleton() {
             return rejectedPromise(new Error('empty msg data'));
         }
         return action.query(msg.data, msg).then((result)=> {
-            if (result.inline_keyboard && result.inline_txt) {
-                if (result.keyboard && result.txt) {
+            if (result.inline_txt) {
+                if (result.txt) {
                     return tel.sendMessage(msg.from.id, result.txt, result.keyboard).then(()=> {
                         return tel.sendMessage(msg.from.id, result.inline_txt, result.inline_keyboard);
                     });
@@ -90,10 +90,10 @@ var singleton = function singleton() {
                     return tel.sendMessage(msg.from.id, result.inline_txt, result.inline_keyboard);
                 }
             } else {
-                if (result.keyboard && result.txt) {
+                if (result.txt) {
                     return tel.sendMessage(msg.from.id, result.txt, result.keyboard);
                 } else {
-                    return rejectedPromise(new Error('no txt or keyboard'));
+                    return rejectedPromise(new Error('no txt'));
                 }
             }
         });
