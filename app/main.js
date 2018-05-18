@@ -38,11 +38,18 @@ var singleton = function singleton() {
             tel.answerCallbackQuery(msg.id);
         } else {
             var M_TAG = '.onCallbackQuery';
+            var start = new Date().getTime();
             queryAction(msg).then(()=> {
-                return tel.answerCallbackQuery(msg.id);
+                var end = new Date().getTime();
+                if (end - start < 10000) {
+                    return tel.answerCallbackQuery(msg.id);
+                }
             }).catch((reason)=> {
                 console.error(TAG + M_TAG, reason);
-                tel.answerCallbackQuery(msg.id);
+                var end = new Date().getTime();
+                if (end - start < 10000) {
+                    return tel.answerCallbackQuery(msg.id);
+                }
             });
         }
     }
