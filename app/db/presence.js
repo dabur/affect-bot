@@ -21,9 +21,7 @@ module.exports = {
 function init(users, lessons) {
     persistence.users = users;
     persistence.lessons = lessons;
-    var date = new Date();
-    var label = moment(date).format("YYYYMM").toString();
-    return reloadByLabel(label, users, lessons, true);
+    return reload(true);
 }
 
 function add(chatId, lessonId, sync, date) {
@@ -48,7 +46,7 @@ function add(chatId, lessonId, sync, date) {
             presence.byChatId[chatId].arr.push(data);
         }
         if (sync) {
-            update().then(function () {
+            update(lessonId).then(function () {
                 d.resolve(true);
             }).catch(function (reason) {
                 d.reject(reason);
@@ -84,7 +82,7 @@ function remove(chatId, lessonId, sync) {
             }
             delete presence.byLessonId[lessonId].obj[chatId];
             if (sync) {
-                update().then(function () {
+                update(lessonId).then(function () {
                     d.resolve(true);
                 }).catch(function (reason) {
                     d.reject(reason);
@@ -117,16 +115,30 @@ function getAll() {
 function clear() {
     presence.byLessonId = {};
     presence.byChatId = {};
-    presence.allButThisWeek = [];
+    presence.olderThisWeek = [];
 }
 
-function reloadByLabel(label, users, lessons, createIfNeed) {
+function reload(createIfNeed) {
+    var date = new Date();
+    var checkDate = new Date(date.getTime());
+    checkDate.setDate(checkDate.getDate() - date.getDay() + 7);
+    clear();
+    if (date.getMonth() == checkDate.getMonth()) {
+        return reloadThisMonth(createIfNeed);
+    } else {
+        return reloadThisMonth(createIfNeed).then(()=> {
+            return reloadNextMonth(createIfNeed);
+        });
+    }
+}
+function reloadThisMonth(createIfNeed) {
     var d = Q.defer();
+    var date = new Date();
+    var label = moment(date).format("YYYYMM").toString();
     sheet.get({
         spreadsheetId: SPREADSHEET_ID,
         range: label + '!A2:D',
     }).then(function (results) {
-        clear();
         for (var i = 0; results && i < results.length; i++) {
             var result = results[i];
             var week = result[0];
@@ -135,17 +147,17 @@ function reloadByLabel(label, users, lessons, createIfNeed) {
             var lessonId = result[1];
             var chatId = result[2];
             var date = result[3];
-            if (thisWeek == week) {
+            if (week >= thisWeek) {
                 add(chatId, lessonId, false, date);
             } else {
-                presence.allButThisWeek.push([week, lessonId, chatId, date]);
+                presence.olderThisWeek.push([week, lessonId, chatId, date]);
             }
         }
         d.resolve(true);
     }).catch(function (reason) {
         if (reason.code && reason.code == 400 && createIfNeed) {
             createSheet(label).then(function () {
-                return reloadByLabel(label, users, lessons);
+                return reloadThisMonth();
             }).then(function () {
                 d.resolve(true);
             }).catch(function (reason) {
@@ -158,29 +170,120 @@ function reloadByLabel(label, users, lessons, createIfNeed) {
     return d.promise;
 }
 
-function update() {
-    var M_TAG = '.update';
+function reloadNextMonth(createIfNeed) {
+    var d = Q.defer();
+    var date = new Date();
+    date.setMonth(date.getMonth() + 1);
+    var label = moment(date).format("YYYYMM").toString();
+    sheet.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: label + '!A2:D',
+    }).then(function (results) {
+        for (var i = 0; results && i < results.length; i++) {
+            var result = results[i];
+            var lessonId = result[1];
+            var chatId = result[2];
+            var date = result[3];
+            add(chatId, lessonId, false, date);
+        }
+        d.resolve(true);
+    }).catch(function (reason) {
+        if (reason.code && reason.code == 400 && createIfNeed) {
+            createSheet(label).then(function () {
+                return reloadNextMonth();
+            }).then(function () {
+                d.resolve(true);
+            }).catch(function (reason) {
+                d.reject(reason);
+            });
+        } else {
+            d.reject(reason);
+        }
+    });
+    return d.promise;
+}
+
+function update(lessonId) {
+    var lessonDate = new Date();
+    var lesson = persistence.lessons.byId[lessonId];
+    lessonDate.setDate(lessonDate.getDate() - lessonDate.getDay() + parseInt(lesson.day));
+    var nowDate = new Date();
+    if (nowDate.getMonth() == lessonDate.getMonth()) {
+        return updateThisMonth();
+    } else {
+        return updateNextMonth();
+    }
+}
+
+function updateThisMonth() {
+    var M_TAG = '.updateThisMonth';
     var d = Q.defer();
     var resource = {values: []};
-    for (var i in presence.allButThisWeek) {
-        var arrAll = presence.allButThisWeek[i];
+    for (var i in presence.olderThisWeek) {
+        var arrAll = presence.olderThisWeek[i];
         resource.values.push([arrAll[0], arrAll[1], arrAll[2], arrAll[3]]);
     }
     var date = new Date();
-    var week = getWeek(date);
-    for (var chatId in presence.byChatId) {
-        if (presence.byChatId.hasOwnProperty(chatId)) {
-            var arr = presence.byChatId[chatId].arr;
+    for (var lessonId in presence.byLessonId) {
+        if (presence.byLessonId.hasOwnProperty(lessonId)) {
+            var subLesson = presence.byLessonId[lessonId];
+            var lesson = persistence.lessons.byId(lessonId);
+            var lessoneDate = new Date(date.getTime());
+            lessoneDate.setDate(lessoneDate.getDate() - date.getDay() + parseInt(lesson.day));
+            var lessoneWeek = getWeek(lessoneDate);
+            var arr = subLesson.arr;
             for (var j = 0; j < arr.length; j++) {
                 var data = arr[j];
-                resource.values.push([week, data.lessonId, data.chatId, data.date]);
+                if (date.getMonth() == lessoneDate.getMonth()) {
+                    resource.values.push([lessoneWeek, data.lessonId, data.chatId, data.date]);
+                }
             }
         }
     }
+    var label = moment(date).format("YYYYMM").toString();
     while (resource.values.length < 100) {
         resource.values.push(["", "", "", ""]);
     }
+    sheet.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: label + '!A2:D',
+        valueInputOption: 'USER_ENTERED',
+        resource: resource
+    }).then(function () {
+        d.resolve(true);
+    }).catch(function (reason) {
+        console.error(TAG + M_TAG, reason);
+        d.reject(reason);
+    });
+    return d.promise;
+}
+
+function updateNextMonth() {
+    var M_TAG = '.updateThisMonth';
+    var d = Q.defer();
+    var resource = {values: []};
+    var date = new Date();
+    for (var lessonId in presence.byLessonId) {
+        if (presence.byLessonId.hasOwnProperty(lessonId)) {
+            var subLesson = presence.byLessonId[lessonId];
+            var lesson = persistence.lessons.byId(lessonId);
+            var lessoneDate = new Date(date.getTime());
+            lessoneDate.setDate(lessoneDate.getDate() - date.getDay() + parseInt(lesson.day));
+            var lessoneWeek = getWeek(lessoneDate);
+            var arr = subLesson.arr;
+            for (var j = 0; j < arr.length; j++) {
+                var data = arr[j];
+                if (lessoneDate.getMonth() > date.getMonth() || lessoneDate.getYear() > date.getYear()) {
+                    resource.values.push([lessoneWeek, data.lessonId, data.chatId, data.date]);
+                }
+            }
+        }
+    }
+    date.setMonth(date.getMonth() + 1);
     var label = moment(date).format("YYYYMM").toString();
+    while (resource.values.length < 100) {
+        resource.values.push(["", "", "", ""]);
+    }
     sheet.update({
         spreadsheetId: SPREADSHEET_ID,
         range: label + '!A2:D',
