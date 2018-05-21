@@ -214,7 +214,7 @@ var singleton = function singleton() {
 
     function getManualUsers() {
         return users.getAll().filter((user)=> {
-            return user.chatId.startsWith('manual_');
+            return (user.chatId && user.chatId.startsWith('manual_'));
         });
     }
 
