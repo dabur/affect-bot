@@ -230,5 +230,5 @@ function createSheet(label) {
 }
 
 function getWeek(date) {
-    return parseInt(moment(date).format("DD").toString()) % 7;
+    return parseInt(moment(date).format("DD").toString()) / 7;
 }
