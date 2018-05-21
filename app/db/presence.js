@@ -205,7 +205,7 @@ function reloadNextMonth(createIfNeed) {
 
 function update(lessonId) {
     var lessonDate = new Date();
-    var lesson = persistence.lessons.byId[lessonId];
+    var lesson = persistence.lessons.getById(lessonId);
     lessonDate.setDate(lessonDate.getDate() - lessonDate.getDay() + parseInt(lesson.day));
     var nowDate = new Date();
     if (nowDate.getMonth() == lessonDate.getMonth()) {
@@ -227,7 +227,7 @@ function updateThisMonth() {
     for (var lessonId in presence.byLessonId) {
         if (presence.byLessonId.hasOwnProperty(lessonId)) {
             var subLesson = presence.byLessonId[lessonId];
-            var lesson = persistence.lessons.byId(lessonId);
+            var lesson = persistence.lessons.getById(lessonId);
             var lessoneDate = new Date(date.getTime());
             lessoneDate.setDate(lessoneDate.getDate() - date.getDay() + parseInt(lesson.day));
             var lessoneWeek = getWeek(lessoneDate);
@@ -266,7 +266,7 @@ function updateNextMonth() {
     for (var lessonId in presence.byLessonId) {
         if (presence.byLessonId.hasOwnProperty(lessonId)) {
             var subLesson = presence.byLessonId[lessonId];
-            var lesson = persistence.lessons.byId(lessonId);
+            var lesson = persistence.lessons.getById(lessonId);
             var lessoneDate = new Date(date.getTime());
             lessoneDate.setDate(lessoneDate.getDate() - date.getDay() + parseInt(lesson.day));
             var lessoneWeek = getWeek(lessoneDate);
