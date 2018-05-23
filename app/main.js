@@ -15,7 +15,9 @@ var singleton = function singleton() {
 
     function run() {
         var d = Q.defer();
-        action.init().then(()=> {
+        tel.init(run).then(()=> {
+            return action.init();
+        }).then(()=> {
             initListeners();
             initReload();
             d.resolve(true);
