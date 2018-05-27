@@ -154,8 +154,8 @@ function reloadThisMonth(createIfNeed) {
                     var lessonDate = new Date();
                     var lesson = persistence.lessons.getById(lessonId);
                     lessonDate.setDate(lessonDate.getDate() - lessonDate.getDay() + parseInt(lesson.day));
-                    var lessonWeek = getWeek(lessonDate);
-                    if (lessonWeek > thisWeek) {
+                    lessonDate.setHours(lesson.hour, lesson.minute);
+                    if (lessonDate > nowDate) {
                         add(chatId, lessonId, false, date);
                     } else {
                         presence.olderThisWeek.push([week, lessonId, chatId, date]);
