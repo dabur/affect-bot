@@ -147,10 +147,22 @@ function reloadThisMonth(createIfNeed) {
             var lessonId = result[1];
             var chatId = result[2];
             var date = result[3];
-            if (week >= thisWeek) {
-                add(chatId, lessonId, false, date);
-            } else {
+            if (week < thisWeek) {
                 presence.olderThisWeek.push([week, lessonId, chatId, date]);
+            } else {
+                if (week = thisWeek) {
+                    var lessonDate = new Date();
+                    var lesson = persistence.lessons.getById(lessonId);
+                    lessonDate.setDate(lessonDate.getDate() - lessonDate.getDay() + parseInt(lesson.day));
+                    var lessonWeek = getWeek(lessonDate);
+                    if (lessonWeek > thisWeek) {
+                        add(chatId, lessonId, false, date);
+                    } else {
+                        presence.olderThisWeek.push([week, lessonId, chatId, date]);
+                    }
+                } else {
+                    add(chatId, lessonId, false, date);
+                }
             }
         }
         d.resolve(true);
