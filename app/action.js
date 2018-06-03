@@ -184,7 +184,7 @@ function getNotificationChatIds(notification) {
     if (!subLesson) {
         for (var i = 0; i < users.length; i++) {
             var user = users[i];
-            if (!user.chatId.startsWith('manual_') && !model.isAdmin(user.chatId)) {
+            if (user.chatId && !String(user.chatId).startsWith('manual_') && !model.isAdmin(user.chatId)) {
                 var subUser = model.getSubUser(user.chatId);
                 if (!subUser) {
                     chatIds.push(user.chatId);
@@ -199,7 +199,7 @@ function getNotificationChatIds(notification) {
         if (subLesson.arr.length < lesson.capacity) {
             for (var j = 0; j < users.length; j++) {
                 var jUser = users[j];
-                if (!jUser.chatId.startsWith('manual_') && !model.isAdmin(jUser.chatId)) {
+                if (jUser.chatId && !String(jUser.chatId).startsWith('manual_') && !model.isAdmin(jUser.chatId)) {
                     if (!subLesson.obj.hasOwnProperty(jUser.chatId)) {
                         var jSubUser = model.getSubUser(jUser.chatId);
                         if (!jSubUser) {
