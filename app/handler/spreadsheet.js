@@ -27,19 +27,23 @@ var singleton = function singleton() {
 
     function init() {
         var d = Q.defer();
-        // Load client secrets from a local file.
-        fs.readFile(__dirname + '/../../.credentials/client_secret.json', function processClientSecrets(err, content) {
-            if (err) {
-                d.reject(err);
-            } else {
-                // Authorize a client with the loaded credentials, then call the
-                // Google Sheets API.
-                authorize(JSON.parse(content), function (oauth2Client) {
-                    auth = oauth2Client;
-                    d.resolve(true);
-                });
-            }
-        });
+        if (auth) {
+            d.resolve(true);
+        } else {
+            // Load client secrets from a local file.
+            fs.readFile(__dirname + '/../../.credentials/client_secret.json', function processClientSecrets(err, content) {
+                if (err) {
+                    d.reject(err);
+                } else {
+                    // Authorize a client with the loaded credentials, then call the
+                    // Google Sheets API.
+                    authorize(JSON.parse(content), function (oauth2Client) {
+                        auth = oauth2Client;
+                        d.resolve(true);
+                    });
+                }
+            });
+        }
         return d.promise;
     }
 

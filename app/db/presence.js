@@ -137,7 +137,7 @@ function reloadThisMonth(createIfNeed) {
     var label = moment(date).format("YYYYMM").toString();
     sheet.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: label + '!A2:D',
+        range: 'telegram_presence_' + label + '!A2:D',
     }).then(function (results) {
         for (var i = 0; results && i < results.length; i++) {
             var result = results[i];
@@ -150,7 +150,7 @@ function reloadThisMonth(createIfNeed) {
             if (week < thisWeek) {
                 presence.olderThisWeek.push([week, lessonId, chatId, date]);
             } else {
-                if (week = thisWeek) {
+                if (week == thisWeek) {
                     var lessonDate = new Date();
                     var lesson = persistence.lessons.getById(lessonId);
                     lessonDate.setDate(lessonDate.getDate() - lessonDate.getDay() + parseInt(lesson.day));
@@ -189,7 +189,7 @@ function reloadNextMonth(createIfNeed) {
     var label = moment(date).format("YYYYMM").toString();
     sheet.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: label + '!A2:D',
+        range: 'telegram_presence_' + label + '!A2:D'
     }).then(function (results) {
         for (var i = 0; results && i < results.length; i++) {
             var result = results[i];
@@ -258,7 +258,7 @@ function updateThisMonth() {
     }
     sheet.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: label + '!A2:D',
+        range: 'telegram_presence_' + label + '!A2:D',
         valueInputOption: 'USER_ENTERED',
         resource: resource
     }).then(function () {
@@ -298,7 +298,7 @@ function updateNextMonth() {
     }
     sheet.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: label + '!A2:D',
+        range: 'telegram_presence_' + label + '!A2:D',
         valueInputOption: 'USER_ENTERED',
         resource: resource
     }).then(function () {
@@ -332,7 +332,7 @@ function createSheet(label) {
     }).then(function () {
         return sheet.update({
             spreadsheetId: SPREADSHEET_ID,
-            range: label + '!A1:D1',
+            range: 'telegram_presence_' + label + '!A1:D1',
             valueInputOption: 'USER_ENTERED',
             resource: {values: [['week', 'lessonId', 'chatId', 'date']]}
         });

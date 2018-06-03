@@ -213,9 +213,15 @@ var singleton = function singleton() {
     }
 
     function getManualUsers() {
-        return users.getAll().filter((user)=> {
-            return (user.chatId && user.chatId.startsWith('manual_'));
-        });
+        var ans = [];
+        var manualUsers = users.getAll();
+        for (var i = 0; i < manualUsers.length; i++) {
+            var user = manualUsers[i];
+            if (user.chatId && user.chatId.startsWith('manual_')) {
+                ans.push(user);
+            }
+        }
+        return ans;
     }
 
     //------------------------------------------------------------------------------------------------------// Public //
