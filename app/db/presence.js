@@ -133,36 +133,24 @@ function reload(createIfNeed) {
 }
 function reloadThisMonth(createIfNeed) {
     var d = Q.defer();
-    var date = new Date();
-    var label = moment(date).format("YYYYMM").toString();
+    var nowDate = new Date();
+    var label = moment(nowDate).format("YYYYMM").toString();
     sheet.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: 'telegram_presence_' + label + '!A2:D',
+        range: 'telegram_presence_' + label + '!A2:C',
     }).then(function (results) {
+        var startWeekDate = getStartWeekDate();
         for (var i = 0; results && i < results.length; i++) {
             var result = results[i];
-            var week = result[0];
-            var nowDate = new Date();
-            var thisWeek = getWeek(nowDate);
-            var lessonId = result[1];
-            var chatId = result[2];
-            var date = result[3];
-            if (week < thisWeek) {
-                presence.olderThisWeek.push([week, lessonId, chatId, date]);
+            var lessonId = result[0];
+            var chatId = result[1];
+            var date = result[2];
+            var lessonDate = getLessonDate(lessonId);
+            var lessonSubDate = getLessonSubDate(date);
+            if (lessonDate.getMonth() == nowDate.getMonth() && lessonSubDate.getTime() >= startWeekDate.getTime()) {
+                add(chatId, lessonId, false, date);
             } else {
-                if (week == thisWeek) {
-                    var lessonDate = new Date();
-                    var lesson = persistence.lessons.getById(lessonId);
-                    lessonDate.setDate(lessonDate.getDate() - lessonDate.getDay() + parseInt(lesson.day));
-                    lessonDate.setHours(lesson.hour, lesson.minute);
-                    if (lessonDate > nowDate) {
-                        add(chatId, lessonId, false, date);
-                    } else {
-                        presence.olderThisWeek.push([week, lessonId, chatId, date]);
-                    }
-                } else {
-                    add(chatId, lessonId, false, date);
-                }
+                presence.olderThisWeek.push([lessonId, chatId, date]);
             }
         }
         d.resolve(true);
@@ -184,18 +172,18 @@ function reloadThisMonth(createIfNeed) {
 
 function reloadNextMonth(createIfNeed) {
     var d = Q.defer();
-    var date = new Date();
-    date.setMonth(date.getMonth() + 1);
-    var label = moment(date).format("YYYYMM").toString();
+    var nextMonthDate = new Date();
+    nextMonthDate.setMonth(nowDate.getMonth() + 1);
+    var label = moment(nextMonthDate).format("YYYYMM").toString();
     sheet.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: 'telegram_presence_' + label + '!A2:D'
+        range: 'telegram_presence_' + label + '!A2:C'
     }).then(function (results) {
         for (var i = 0; results && i < results.length; i++) {
             var result = results[i];
-            var lessonId = result[1];
-            var chatId = result[2];
-            var date = result[3];
+            var lessonId = result[0];
+            var chatId = result[1];
+            var date = result[2];
             add(chatId, lessonId, false, date);
         }
         d.resolve(true);
@@ -233,32 +221,33 @@ function updateThisMonth() {
     var resource = {values: []};
     for (var i in presence.olderThisWeek) {
         var arrAll = presence.olderThisWeek[i];
-        resource.values.push([arrAll[0], arrAll[1], arrAll[2], arrAll[3]]);
+        resource.values.push([arrAll[0], arrAll[1], arrAll[2]]);
     }
-    var date = new Date();
+    var nowDate = new Date();
+    var startWeekDate = getStartWeekDate();
     for (var lessonId in presence.byLessonId) {
         if (presence.byLessonId.hasOwnProperty(lessonId)) {
-            var subLesson = presence.byLessonId[lessonId];
-            var lesson = persistence.lessons.getById(lessonId);
-            var lessoneDate = new Date(date.getTime());
-            lessoneDate.setDate(lessoneDate.getDate() - date.getDay() + parseInt(lesson.day));
-            var lessoneWeek = getWeek(lessoneDate);
-            var arr = subLesson.arr;
-            for (var j = 0; j < arr.length; j++) {
-                var data = arr[j];
-                if (date.getMonth() == lessoneDate.getMonth()) {
-                    resource.values.push([lessoneWeek, data.lessonId, data.chatId, data.date]);
+            var lessonDate = getLessonDate(lessonId);
+            if (lessonDate.getMonth() == nowDate.getMonth()) {
+                var subLesson = presence.byLessonId[lessonId];
+                var arr = subLesson.arr;
+                for (var j = 0; j < arr.length; j++) {
+                    var data = arr[j];
+                    var lessonSubDate = getLessonSubDate(data.date);
+                    if (lessonSubDate.getTime() >= startWeekDate.getTime()) {
+                        resource.values.push([data.lessonId, data.chatId, data.date]);
+                    }
                 }
             }
         }
     }
-    var label = moment(date).format("YYYYMM").toString();
+    var label = moment(nowDate).format("YYYYMM").toString();
     while (resource.values.length < 100) {
-        resource.values.push(["", "", "", ""]);
+        resource.values.push(["", "", ""]);
     }
     sheet.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: 'telegram_presence_' + label + '!A2:D',
+        range: 'telegram_presence_' + label + '!A2:C',
         valueInputOption: 'USER_ENTERED',
         resource: resource
     }).then(function () {
@@ -274,31 +263,32 @@ function updateNextMonth() {
     var M_TAG = '.updateThisMonth';
     var d = Q.defer();
     var resource = {values: []};
-    var date = new Date();
+    var nowDate = new Date();
+    var startWeekDate = getStartWeekDate();
     for (var lessonId in presence.byLessonId) {
         if (presence.byLessonId.hasOwnProperty(lessonId)) {
-            var subLesson = presence.byLessonId[lessonId];
-            var lesson = persistence.lessons.getById(lessonId);
-            var lessoneDate = new Date(date.getTime());
-            lessoneDate.setDate(lessoneDate.getDate() - date.getDay() + parseInt(lesson.day));
-            var lessoneWeek = getWeek(lessoneDate);
-            var arr = subLesson.arr;
-            for (var j = 0; j < arr.length; j++) {
-                var data = arr[j];
-                if (lessoneDate.getMonth() > date.getMonth() || lessoneDate.getYear() > date.getYear()) {
-                    resource.values.push([lessoneWeek, data.lessonId, data.chatId, data.date]);
+            var lessonDate = getLessonDate(lessonId);
+            if (lessonDate.getMonth() > nowDate.getMonth()) {
+                var subLesson = presence.byLessonId[lessonId];
+                var arr = subLesson.arr;
+                for (var j = 0; j < arr.length; j++) {
+                    var data = arr[j];
+                    var lessonSubDate = getLessonSubDate(data.date);
+                    if (lessonSubDate.getTime() >= startWeekDate.getTime()) {
+                        resource.values.push([data.lessonId, data.chatId, data.date]);
+                    }
                 }
             }
         }
     }
-    date.setMonth(date.getMonth() + 1);
-    var label = moment(date).format("YYYYMM").toString();
+    nowDate.setMonth(nowDate.getMonth() + 1);
+    var label = moment(nowDate).format("YYYYMM").toString();
     while (resource.values.length < 100) {
-        resource.values.push(["", "", "", ""]);
+        resource.values.push(["", "", ""]);
     }
     sheet.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: 'telegram_presence_' + label + '!A2:D',
+        range: 'telegram_presence_' + label + '!A2:C',
         valueInputOption: 'USER_ENTERED',
         resource: resource
     }).then(function () {
@@ -319,8 +309,8 @@ function createSheet(label) {
                 properties: {
                     title: label,
                     gridProperties: {
-                        rowCount: 100,
-                        columnCount: 4
+                        rowCount: 1,
+                        columnCount: 3
                     }
                 }
             }
@@ -332,9 +322,9 @@ function createSheet(label) {
     }).then(function () {
         return sheet.update({
             spreadsheetId: SPREADSHEET_ID,
-            range: 'telegram_presence_' + label + '!A1:D1',
+            range: 'telegram_presence_' + label + '!A1:C1',
             valueInputOption: 'USER_ENTERED',
-            resource: {values: [['week', 'lessonId', 'chatId', 'date']]}
+            resource: {values: [['lessonId', 'chatId', 'date']]}
         });
     }).then(function () {
         d.resolve(true);
@@ -344,6 +334,28 @@ function createSheet(label) {
     return d.promise;
 }
 
-function getWeek(date) {
-    return parseInt(parseInt(moment(date).format("DD").toString()) / 7);
+function getLessonDate(lessonId) {
+    var lesson = persistence.lessons.getById(lessonId);
+    var lessonDate = new Date();
+    lessonDate.setDate(lessonDate.getDate() - lessonDate.getDay() + parseInt(lesson.day));
+    return lessonDate;
+}
+
+function getLessonSubDate(date) {
+    var dateStr = String(date);
+    var lessonSubDate = new Date();
+    lessonSubDate.setHours(0, 0, 0, 0);
+    lessonSubDate.setFullYear(
+        parseInt(dateStr.substring(0, 4)),
+        parseInt(dateStr.substring(4, 6)) - 1,
+        parseInt(dateStr.substr(6, 8))
+    );
+    return lessonSubDate;
+}
+
+function getStartWeekDate() {
+    var startWeekDate = new Date();
+    startWeekDate.setDate(startWeekDate.getDate() - startWeekDate.getDay());
+    startWeekDate.setHours(0, 0, 0, 0);
+    return startWeekDate;
 }
