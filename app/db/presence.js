@@ -173,7 +173,7 @@ function reloadThisMonth(createIfNeed) {
 function reloadNextMonth(createIfNeed) {
     var d = Q.defer();
     var nextMonthDate = new Date();
-    nextMonthDate.setMonth(nowDate.getMonth() + 1);
+    nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
     var label = moment(nextMonthDate).format("YYYYMM").toString();
     sheet.get({
         spreadsheetId: SPREADSHEET_ID,
@@ -307,9 +307,9 @@ function createSheet(label) {
         {
             addSheet: {
                 properties: {
-                    title: label,
+                    title: 'telegram_presence_' + label,
                     gridProperties: {
-                        rowCount: 1,
+                        rowCount: 1000,
                         columnCount: 3
                     }
                 }
